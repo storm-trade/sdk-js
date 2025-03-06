@@ -1,7 +1,8 @@
 {
   "name": "@storm-trade/trading-sdk",
   "version": "1.0.0",
-  "description": "Trading SDK for financial operations",
+  "description": "Storm Trade trading SDK",
+  "private": false,
   "exports": {
     "./api-clients": {
       "types": "./dist/api-clients/index.d.ts",
