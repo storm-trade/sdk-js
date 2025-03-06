@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+coverage/
+docs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.rollup.cache
+
+*tsbuild*
+# Logs
+*.log
+npm-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db

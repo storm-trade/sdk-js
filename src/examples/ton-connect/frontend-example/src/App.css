@@ -1,0 +1,238 @@
+/* App.css */
+:root {
+  --primary-color: #0088CC;
+  --secondary-color: #035a8b;
+  --background-color: #f5f8fa;
+  --card-background: #ffffff;
+  --text-color: #333333;
+  --border-color: #e1e8ed;
+  --success-color: #28a745;
+  --error-color: #dc3545;
+  --disabled-color: #6c757d;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Roboto', Arial, sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  line-height: 1.6;
+}
+
+.app-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.app-header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+.wallet-connection {
+  display: flex;
+  align-items: center;
+}
+
+.app-main {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.card {
+  background-color: var(--card-background);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 24px;
+  margin-bottom: 30px;
+}
+
+.card h2 {
+  font-size: 20px;
+  margin-bottom: 20px;
+  color: var(--text-color);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 10px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.select-input, .text-input {
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  font-size: 16px;
+  width: 100%;
+  transition: border-color 0.3s ease;
+}
+
+.select-input:focus, .text-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.select-input:disabled, .text-input:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.submit-button {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-top: 10px;
+}
+
+.submit-button:hover:not(:disabled) {
+  background-color: var(--secondary-color);
+}
+
+.submit-button:disabled {
+  background-color: var(--disabled-color);
+  cursor: not-allowed;
+}
+
+.transaction-status {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.transaction-status h3 {
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.transaction-status pre {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 16px;
+  font-family: monospace;
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+}
+
+.app-footer {
+  margin-top: 40px;
+  text-align: center;
+  color: #6c757d;
+  font-size: 14px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Slider Styles */
+.slider-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.slider-input {
+  flex: 1;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #e1e8ed;
+  outline: none;
+  border-radius: 3px;
+}
+
+.slider-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.slider-input::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  cursor: pointer;
+  transition: background 0.15s ease;
+  border: none;
+}
+
+.slider-input::-webkit-slider-thumb:hover {
+  background: var(--secondary-color);
+}
+
+.slider-input::-moz-range-thumb:hover {
+  background: var(--secondary-color);
+}
+
+.slider-input:disabled {
+  opacity: 0.6;
+}
+
+.slider-input:disabled::-webkit-slider-thumb {
+  background: var(--disabled-color);
+  cursor: not-allowed;
+}
+
+.slider-input:disabled::-moz-range-thumb {
+  background: var(--disabled-color);
+  cursor: not-allowed;
+}
+
+.slider-container .text-input {
+  width: 80px;
+  text-align: center;
+}
+
+.leverage-display {
+  display: flex;
+  justify-content: flex-end;
+  font-size: 14px;
+  color: var(--primary-color);
+  font-weight: 600;
+  margin-top: 4px;
+}

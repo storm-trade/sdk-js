@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading SDK - TON-Connect Example</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+    <meta name="description" content="Trading SDK example with TON-Connect UI">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 2rem;
+            background-color: #f5f5f5;
+        }
+        .card {
+            margin-bottom: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .card-header {
+            background-color: #0d6efd;
+            color: white;
+            font-weight: bold;
+            border-radius: 10px 10px 0 0;
+        }
+        .btn-primary {
+            background-color: #0d6efd;
+        }
+        .form-label {
+            font-weight: 500;
+        }
+        .transaction-result {
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div id="root">
+        <div class="container">
+            <h1 class="text-center mb-4">Trading SDK with TON-Connect</h1>
+            
+            <div class="row">
+                <div class="col-md-6 offset-md-3">
+                    <!-- Connection Status -->
+                    <div class="card mb-4">
+                        <div class="card-header">Wallet Connection</div>
+                        <div class="card-body">
+                            <div id="connection-status">Not connected</div>
+                            <button id="connect-wallet-btn" class="btn btn-primary mt-3">Connect Wallet</button>
+                            <button id="disconnect-wallet-btn" class="btn btn-danger mt-3 d-none">Disconnect</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Provide Liquidity Form -->
+                    <div class="card">
+                        <div class="card-header">Provide Liquidity</div>
+                        <div class="card-body">
+                            <form id="provide-liquidity-form">
+                                <div class="mb-3">
+                                    <label for="asset-select" class="form-label">Asset</label>
+                                    <select class="form-select" id="asset-select" required>
+                                        <option value="TON">TON</option>
+                                        <option value="USDT">USDT</option>
+                                        <option value="NOT">NOT</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="amount-input" class="form-label">Amount</label>
+                                    <input type="number" class="form-control" id="amount-input" 
+                                           placeholder="Enter amount" step="0.000001" required>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary" id="provide-btn" disabled>
+                                    Provide Liquidity
+                                </button>
+                            </form>
+                            
+                            <div class="mt-4">
+                                <h5>Transaction Result:</h5>
+                                <pre class="transaction-result" id="transaction-result">No transaction sent yet</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TON-Connect SDK -->
+    <script src="https://unpkg.com/@tonconnect/sdk@latest/dist/tonconnect-sdk.min.js"></script>
+    
+    <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>

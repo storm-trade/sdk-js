@@ -1,0 +1,43 @@
+# Source and examples
+src/
+examples/
+dist/src/
+dist/examples/
+
+# Tests
+**/*.test.ts
+**/*.test.js
+**/*.spec.ts
+**/*.spec.js
+__tests__/
+__mocks__/
+
+# Build artifacts
+*.tsbuildinfo
+.rollup.cache/
+examples/
+
+# Development configs
+tsconfig.json
+rollup.config.js
+jest.config.js
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docs and examples
+docs/
+examples/
+*.md
+!README.md
+
+# Misc
+.gitignore
+.eslintrc*
+.prettierrc*
+coverage/
+.env*
+*.log
