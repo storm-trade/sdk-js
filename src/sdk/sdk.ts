@@ -5,7 +5,7 @@ import {
   TonClientAbstract,
   VaultContract,
 } from '../api-clients';
-import { TonClient, TonClient4, Address } from '@ton/ton';
+import { Address, TonClient, TonClient4 } from '@ton/ton';
 import { LiteClient } from 'ton-lite-client';
 import {
   createAddMarginTx,
@@ -49,6 +49,7 @@ export class StormTradingSdk {
   private readonly jettonMasters: Map<string, JettonMasterContract> = new Map();
   private readonly vaults: Map<string, VaultContract> = new Map();
   private readonly positionManagers: Map<string, PositionManagerContract> = new Map();
+  private lpWalletsAddressCache: Map<string, Address> = new Map();
 
   constructor(
     private readonly stormClient: StormClient,
@@ -67,7 +68,10 @@ export class StormTradingSdk {
     ]);
   }
 
-  async getPositionManagerAddressByAssets(baseAssetName: string, collateralAssetName: string): Promise<Address> {
+  async getPositionManagerAddressByAssets(
+    baseAssetName: string,
+    collateralAssetName: string,
+  ): Promise<Address> {
     const positionAddressByAssetNameAndBaseAsset = this.positionManagerAddressCache.get(
       baseAssetName + ':' + collateralAssetName,
     );
@@ -78,7 +82,10 @@ export class StormTradingSdk {
     const vault = this.stormClient.config.requireVaultConfigByAssetName(collateralAssetName);
     const vaultContract = this.getVaultContract(vault.vaultAddress);
     const vammAddress = Address.parse(vamm.address);
-    const positionManagerAddress = await vaultContract.getPositionManagerAddress(vammAddress, this.traderAddress);
+    const positionManagerAddress = await vaultContract.getPositionManagerAddress(
+      vammAddress,
+      this.traderAddress,
+    );
     this.positionManagerAddressCache.set(
       baseAssetName + ':' + collateralAssetName,
       positionManagerAddress,
@@ -86,56 +93,82 @@ export class StormTradingSdk {
     return positionManagerAddress;
   }
 
-  async getPositionManagerData(positionManagerAddress: Address): Promise<PositionManagerData | null> {
-    const positionManagerContract = this.getPositionManagerContract(positionManagerAddress.toRawString());
+  async getPositionManagerData(
+    positionManagerAddress: Address,
+  ): Promise<PositionManagerData | null> {
+    const positionManagerContract = this.getPositionManagerContract(
+      positionManagerAddress.toRawString(),
+    );
     return positionManagerContract.getData();
   }
 
   async createMarketOpenOrder(opts: MarketOpenOrderParams): Promise<TXParams> {
-    const { baseAssetName, collateralAssetName } = opts;
-    const vault = this.stormClient.config.requireVaultConfigByAssetName(collateralAssetName);
-    const positionManagerAddress = await this.getPositionManagerAddressByAssets(
-      baseAssetName,
-      collateralAssetName,
-    );
-    const isPositionManagerInitialized =
-      await this.checkIsPositionManagerInitialized(positionManagerAddress);
-    const assetId = this.stormClient.config.requireAssetIndexByName(baseAssetName);
+    await this.prefetchCreateMarketOpenOrderCaches(opts);
+    return this.syncCreateMarketOpenOrderParams(opts);
+  }
 
-    const orderParams = {
-      assetId,
-      initPositionManager: !isPositionManagerInitialized,
-      amount: opts.amount,
-      direction: opts.direction,
-      leverage: opts.leverage,
-      expiration: opts.expiration ?? marketOpenDefaultExpiration(),
-      limitPrice: 0n,
-      minBaseAssetAmount: opts.minBaseAssetAmount ?? 0n,
-      stopTriggerPrice: opts.stopTriggerPrice ?? 0n,
-      takeTriggerPrice: opts.takeTriggerPrice ?? 0n,
-    };
+  async provideLiquidity(opts: ProvideLiquidityParams): Promise<TXParams> {
+    await this.prefetchProvideLiquidityCaches(opts.assetName);
+    return this.syncProvideLiquidityParams(opts);
+  }
 
+  syncProvideLiquidityParams(opts: ProvideLiquidityParams) {
+    const { assetName } = opts;
+    const traderJettonWalletAddress = this.jettonWalletsAddressCache.get(opts.assetName);
+    if (!traderJettonWalletAddress) {
+      throw new Error(`Jetton wallet for ${opts.assetName} not found`);
+    }
+    const vault = this.stormClient.config.requireVaultConfigByAssetName(assetName);
     const baseParams = {
       traderAddress: this.traderAddress,
       amount: opts.amount,
-      positionManagerAddress,
+      vaultAddress: Address.parse(vault.vaultAddress),
+    };
+
+    if (this.isNativeVault(assetName)) {
+      return createProvideLiquidityTx({ vaultType: 'native', ...baseParams });
+    } else {
+      return createProvideLiquidityTx({
+        vaultType: 'jetton',
+        traderJettonWalletAddress,
+        ...baseParams,
+      });
+    }
+  }
+
+  private async prefetchProvideLiquidityCaches(assetName: 'TON' | 'USDT' | 'NOT') {
+    await this.getJettonWalletAddressByAssetName(assetName);
+  }
+
+  async addMargin(opts: AddMarginParams): Promise<TXParams> {
+    const vault = this.stormClient.config.requireVaultConfigByAssetName(opts.collateralAssetName);
+    const assetId = this.stormClient.config.requireAssetIndexByName(opts.baseAssetName);
+    const oraclePayload = opts.oraclePayload
+      ? opts.oraclePayload
+      : await this.getOraclePayloadByAssets(opts.baseAssetName, opts.collateralAssetName);
+    const orderParams = {
+      amount: opts.amount,
+      direction: opts.direction,
+      assetId,
+      oracle: oraclePayload,
+    };
+    const baseParams = {
+      traderAddress: this.traderAddress,
+      amount: opts.amount,
       vaultAddress: Address.parse(vault.vaultAddress),
       orderParams,
     };
 
-    if (this.isNativeVault(collateralAssetName)) {
-      return createMarketOrderTx({
-        ...baseParams,
-        vaultType: 'native',
-      });
+    if (this.isNativeVault(opts.collateralAssetName)) {
+      return createAddMarginTx({ vaultType: 'native', ...baseParams });
     } else {
       const traderJettonWalletAddress = await this.getJettonWalletAddressByAssetName(
-        collateralAssetName,
+        opts.collateralAssetName,
       );
-      return createMarketOrderTx({
-        ...baseParams,
+      return createAddMarginTx({
         vaultType: 'jetton',
         traderJettonWalletAddress,
+        ...baseParams,
       });
     }
   }
@@ -189,84 +222,11 @@ export class StormTradingSdk {
     });
   }
 
-  async provideLiquidity(opts: ProvideLiquidityParams): Promise<TXParams> {
-    const { assetName } = opts;
-    const vault = this.stormClient.config.requireVaultConfigByAssetName(assetName);
-    const baseParams = {
-      traderAddress: this.traderAddress,
-      amount: opts.amount,
-      vaultAddress: Address.parse(vault.vaultAddress),
-    };
-    if (this.isNativeVault(assetName)) {
-      return createProvideLiquidityTx({ vaultType: 'native', ...baseParams });
-    } else {
-      const traderJettonWalletAddress = await this.getJettonWalletAddressByAssetName(
-        assetName,
-      );
-      return createProvideLiquidityTx({
-        vaultType: 'jetton',
-        traderJettonWalletAddress,
-        ...baseParams,
-      });
-    }
-  }
-
-  async withdrawLiquidity(opts: WithdrawLiquidityParams): Promise<TXParams> {
-    const { assetName } = opts;
-    const vault = this.stormClient.config.requireVaultConfigByAssetName(assetName);
-    const lpJettonMasterContract = this.getJettonMasterContract(vault.lpJettonMaster);
-    const lpWalletAddress = await lpJettonMasterContract.getJettonWalletAddress(this.traderAddress);
-    return createWithdrawLiquidityTx({
-      lpWalletAddress,
-      amount: opts.amountOfSLP,
-      userAddress: this.traderAddress,
-    });
-  }
-
-  async addMargin(opts: AddMarginParams): Promise<TXParams> {
-    const vault = this.stormClient.config.requireVaultConfigByAssetName(opts.collateralAssetName);
-    const assetId = this.stormClient.config.requireAssetIndexByName(opts.baseAssetName);
-    const oraclePayload = opts.oraclePayload
-      ? opts.oraclePayload
-      : await this.getOraclePayloadByAssets(
-        opts.baseAssetName,
-        opts.collateralAssetName,
-      );
-    const orderParams = {
-      amount: opts.amount,
-      direction: opts.direction,
-      assetId,
-      oracle: oraclePayload,
-    };
-    const baseParams = {
-      traderAddress: this.traderAddress,
-      amount: opts.amount,
-      vaultAddress: Address.parse(vault.vaultAddress),
-      orderParams,
-    };
-
-    if (this.isNativeVault(opts.collateralAssetName)) {
-      return createAddMarginTx({ vaultType: 'native', ...baseParams });
-    } else {
-      const traderJettonWalletAddress = await this.getJettonWalletAddressByAssetName(
-        opts.collateralAssetName,
-      );
-      return createAddMarginTx({
-        vaultType: 'jetton',
-        traderJettonWalletAddress,
-        ...baseParams,
-      });
-    }
-  }
-
   async removeMargin(opts: RemoveMarginParams): Promise<TXParams> {
     const assetId = this.stormClient.config.requireAssetIndexByName(opts.baseAssetName);
     const oraclePayload = opts.oraclePayload
       ? opts.oraclePayload
-      : await this.getOraclePayloadByAssets(
-        opts.baseAssetName,
-        opts.collateralAssetName,
-      );
+      : await this.getOraclePayloadByAssets(opts.baseAssetName, opts.collateralAssetName);
     const positionManagerAddress = await this.getPositionManagerAddressByAssets(
       opts.baseAssetName,
       opts.collateralAssetName,
@@ -287,6 +247,97 @@ export class StormTradingSdk {
     return createRemoveMarginTx({ ...baseParams });
   }
 
+  async withdrawLiquidity(opts: WithdrawLiquidityParams): Promise<TXParams> {
+    const { assetName } = opts;
+    await this.prefetchWithdrawLiquidityCaches(assetName);
+    return this.syncWithdrawLiquidity(opts);
+  }
+
+  private syncWithdrawLiquidity(opts: WithdrawLiquidityParams) {
+    const lpWalletAddress = this.lpWalletsAddressCache.get(opts.assetName);
+    if (!lpWalletAddress) {
+      throw new Error(`LP wallet for ${opts.assetName} not found`);
+    }
+    return createWithdrawLiquidityTx({
+      lpWalletAddress,
+      amount: opts.amountOfSLP,
+      userAddress: this.traderAddress,
+    });
+  }
+
+  private async prefetchWithdrawLiquidityCaches(assetName: 'TON' | 'USDT' | 'NOT') {
+    if (this.lpWalletsAddressCache.get(assetName)) {
+      return;
+    }
+    const vault = this.stormClient.config.requireVaultConfigByAssetName(assetName);
+    const lpJettonMasterContract = this.getJettonMasterContract(vault.lpJettonMaster);
+    const lpWalletAddress = await lpJettonMasterContract.getJettonWalletAddress(this.traderAddress);
+    this.lpWalletsAddressCache.set(assetName, lpWalletAddress);
+  }
+
+  private syncCreateMarketOpenOrderParams(opts: MarketOpenOrderParams) {
+    const traderJettonWalletAddress = this.jettonWalletsAddressCache.get(opts.collateralAssetName);
+    if (!traderJettonWalletAddress) {
+      throw new Error(`Jetton wallet for ${opts.collateralAssetName} not found`);
+    }
+    const positionManagerAddress = this.positionManagerAddressCache.get(
+      opts.baseAssetName + ':' + opts.collateralAssetName,
+    );
+    if (!positionManagerAddress) {
+      throw new Error(
+        `Position manager for ${opts.baseAssetName} and ${opts.collateralAssetName} not found`,
+      );
+    }
+    const vault = this.stormClient.config.requireVaultConfigByAssetName(opts.collateralAssetName);
+    const vaultAddress = Address.parse(vault.vaultAddress);
+    const baseParams = {
+      traderAddress: this.traderAddress,
+      vaultAddress,
+      amount: opts.amount,
+    };
+    const orderParams = {
+      ...opts,
+      limitPrice: 0n,
+      assetId: this.stormClient.config.requireAssetIndexByName(opts.baseAssetName),
+      initPositionManager: !this.initializedPositionManagersCache.has(
+        positionManagerAddress.toRawString(),
+      ),
+      expiration: marketOpenDefaultExpiration(),
+      minBaseAssetAmount: opts.minBaseAssetAmount ?? 0n,
+      stopTriggerPrice: opts.stopTriggerPrice ?? 0n,
+      takeTriggerPrice: opts.takeTriggerPrice ?? 0n,
+    };
+    if (this.isNativeVault(opts.collateralAssetName)) {
+      return createMarketOrderTx({
+        orderParams,
+        ...baseParams,
+        vaultType: 'native',
+      });
+    } else {
+      return createMarketOrderTx({
+        orderParams,
+        ...baseParams,
+        vaultType: 'jetton',
+        traderJettonWalletAddress,
+      });
+    }
+  }
+
+  private async prefetchCreateMarketOpenOrderCaches(opts: {
+    baseAssetName: string;
+    collateralAssetName: string;
+  }) {
+    const { baseAssetName, collateralAssetName } = opts;
+    const positionManagerAddress = await this.getPositionManagerAddressByAssets(
+      baseAssetName,
+      collateralAssetName,
+    );
+    await this.checkIsPositionManagerInitialized(positionManagerAddress);
+
+    if (!this.isNativeVault(collateralAssetName))
+      await this.getJettonWalletAddressByAssetName(collateralAssetName);
+  }
+
   private async getJettonWalletAddressByAssetName(collateralAssetName: string): Promise<Address> {
     let jettonWalletAddress = this.jettonWalletsAddressCache.get(collateralAssetName);
     if (jettonWalletAddress) {
@@ -303,7 +354,9 @@ export class StormTradingSdk {
     return collateralAssetName === 'TON';
   }
 
-  private async checkIsPositionManagerInitialized(positionManagerAddress: Address): Promise<boolean> {
+  private async checkIsPositionManagerInitialized(
+    positionManagerAddress: Address,
+  ): Promise<boolean> {
     if (this.initializedPositionManagersCache.has(positionManagerAddress.toRawString())) {
       return true;
     }
@@ -320,7 +373,10 @@ export class StormTradingSdk {
     }
   }
 
-  private async getOraclePayloadByAssets(baseAssetName: string, collateralAssetName: string): Promise<OraclePayload> {
+  private async getOraclePayloadByAssets(
+    baseAssetName: string,
+    collateralAssetName: string,
+  ): Promise<OraclePayload> {
     const oraclePriceResp = await this.stormClient.oracleClient.getPrice(baseAssetName);
     const oraclePayload = { ...oraclePriceResp.result_message };
     if (collateralAssetName === 'USDT') {
@@ -403,9 +459,8 @@ export class StormTradingSdk {
         vaultType: 'native',
       });
     } else {
-      const traderJettonWalletAddress = await this.getJettonWalletAddressByAssetName(
-        collateralAssetName,
-      );
+      const traderJettonWalletAddress =
+        await this.getJettonWalletAddressByAssetName(collateralAssetName);
       return createLimitOrderTx({
         ...baseParams,
         vaultType: 'jetton',
