@@ -36,6 +36,7 @@ import {
   WithdrawLiquidityParams,
 } from './sdk.types';
 import { PositionManagerData } from '../api-clients/contracts/position-manager/position-manager.types';
+import { CustomCache } from '../api-clients/utils/cache';
 
 const marketOpenDefaultExpiration = () => Math.floor(Date.now() / 1000) + 15 * 60;
 const limitDefaultExpiration = () => Math.floor(Date.now() / 1000) + 60 * 24 * 60 * 60;
@@ -43,13 +44,13 @@ const limitDefaultExpiration = () => Math.floor(Date.now() / 1000) + 60 * 24 * 6
 export class StormTradingSdk {
   private readonly tonClient: TonClientAbstract;
   private readonly traderAddress: Address;
-  private readonly jettonWalletsAddressCache: Map<string, Address> = new Map();
-  private readonly positionManagerAddressCache: Map<string, Address> = new Map();
+  private readonly jettonWalletsAddressCache: CustomCache<Address> = new CustomCache();
+  private readonly positionManagerAddressCache: CustomCache<Address> = new CustomCache();
   private readonly initializedPositionManagersCache: Set<string> = new Set();
-  private readonly jettonMasters: Map<string, JettonMasterContract> = new Map();
-  private readonly vaults: Map<string, VaultContract> = new Map();
-  private readonly positionManagers: Map<string, PositionManagerContract> = new Map();
-  private lpWalletsAddressCache: Map<string, Address> = new Map();
+  private readonly jettonMasters: CustomCache<JettonMasterContract> = new CustomCache();
+  private readonly vaults: CustomCache<VaultContract> = new CustomCache();
+  private readonly positionManagers: CustomCache<PositionManagerContract> = new CustomCache();
+  private lpWalletsAddressCache: CustomCache<Address> = new CustomCache();
 
   constructor(
     private readonly stormClient: StormClient,
@@ -73,7 +74,7 @@ export class StormTradingSdk {
     collateralAssetName: string,
   ): Promise<Address> {
     const positionAddressByAssetNameAndBaseAsset = this.positionManagerAddressCache.get(
-      baseAssetName + ':' + collateralAssetName,
+      baseAssetName, collateralAssetName,
     );
     if (positionAddressByAssetNameAndBaseAsset) {
       return positionAddressByAssetNameAndBaseAsset;
@@ -103,7 +104,7 @@ export class StormTradingSdk {
   }
 
   async createMarketOpenOrder(opts: MarketOpenOrderParams): Promise<TXParams> {
-    await this.prefetchCreateMarketOpenOrderCaches(opts);
+    await this.prefetchOrderCaches(opts);
     return this.syncCreateMarketOpenOrderParams(opts);
   }
 
@@ -276,18 +277,10 @@ export class StormTradingSdk {
   }
 
   private syncCreateMarketOpenOrderParams(opts: MarketOpenOrderParams) {
-    const traderJettonWalletAddress = this.jettonWalletsAddressCache.get(opts.collateralAssetName);
-    if (!traderJettonWalletAddress) {
-      throw new Error(`Jetton wallet for ${opts.collateralAssetName} not found`);
-    }
-    const positionManagerAddress = this.positionManagerAddressCache.get(
-      opts.baseAssetName + ':' + opts.collateralAssetName,
+    const traderJettonWalletAddress = this.jettonWalletsAddressCache.getOrThrow(opts.collateralAssetName);
+    const positionManagerAddress = this.positionManagerAddressCache.getOrThrow(
+      opts.baseAssetName, opts.collateralAssetName,
     );
-    if (!positionManagerAddress) {
-      throw new Error(
-        `Position manager for ${opts.baseAssetName} and ${opts.collateralAssetName} not found`,
-      );
-    }
     const vault = this.stormClient.config.requireVaultConfigByAssetName(opts.collateralAssetName);
     const vaultAddress = Address.parse(vault.vaultAddress);
     const baseParams = {
@@ -323,7 +316,7 @@ export class StormTradingSdk {
     }
   }
 
-  private async prefetchCreateMarketOpenOrderCaches(opts: {
+  private async prefetchOrderCaches(opts: {
     baseAssetName: string;
     collateralAssetName: string;
   }) {
@@ -423,14 +416,12 @@ export class StormTradingSdk {
 
   private async internalCreateLimitOrder(opts: CreateAnyLimitOrderParams): Promise<TXParams> {
     const { baseAssetName, collateralAssetName } = opts;
+    await this.prefetchOrderCaches(opts);
     const vault = this.stormClient.config.requireVaultConfigByAssetName(collateralAssetName);
-    const positionManagerAddress = await this.getPositionManagerAddressByAssets(
-      baseAssetName,
-      collateralAssetName,
-    );
     const assetId = this.stormClient.config.requireAssetIndexByName(baseAssetName);
+    // TODO: Get those values
     const isPositionManagerInitialized =
-      await this.checkIsPositionManagerInitialized(positionManagerAddress);
+    const positionManagerAddress =
 
     const orderParams = {
       assetId,
@@ -460,7 +451,6 @@ export class StormTradingSdk {
       });
     } else {
       const traderJettonWalletAddress =
-        await this.getJettonWalletAddressByAssetName(collateralAssetName);
       return createLimitOrderTx({
         ...baseParams,
         vaultType: 'jetton',
