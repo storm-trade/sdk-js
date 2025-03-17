@@ -1,6 +1,6 @@
 {
   "name": "@storm-trade/trading-sdk",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Storm Trade trading SDK",
   "private": false,
   "exports": {
