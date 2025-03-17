@@ -206,15 +206,16 @@ function App() {
       const blockchainAmount = convertToBlockchainAmount(amount, selectedAsset);
       // Convert leverage to bigint with 9 decimals (as per SDK requirements)
       const leverageBigInt = BigInt(Math.floor(parseFloat(leverage) * 1_000_000_000));
-
-      // Create transaction parameters using the Trading SDK
-      const txParams = await tradingSdk.createMarketOpenOrder({
+      const marketOpenOrderParams = {
         baseAssetName: baseAsset,
         collateralAssetName: selectedAsset as CollateralAssets,
         direction: direction === 'long' ? Direction.long : Direction.short,
         amount: blockchainAmount,
         leverage: leverageBigInt,
-      });
+      }
+      await tradingSdk.prefetchCreateMarketOpenOrderCaches(marketOpenOrderParams);
+      // Create transaction parameters using the Trading SDK
+      const txParams = tradingSdk.syncCreateMarketOpenOrderParams(marketOpenOrderParams);;
       const transaction = formatTxParamsForTonConnect(txParams);
       setTransactionStatus('Transaction prepared. Sending to wallet for approval...');
       const result = await tonConnectUI.sendTransaction(transaction);
