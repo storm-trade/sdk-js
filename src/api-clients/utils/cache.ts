@@ -1,17 +1,17 @@
-export class CustomCache<V> {
-  private readonly map: Map<unknown, V> = new Map()
+export class Cache<V> {
+  private readonly map: Map<unknown, V> = new Map();
 
-  public get(...args: string[]) {
-    return this.map.get(args.join(':'))
+  public get(key: string[] | string) {
+    return this.map.get(Array.isArray(key) ? key.join(':') : key);
   }
 
-  public getOrThrow(...args: string[]) {
-    const v = this.get(args.join(':'))
-    if (v === undefined) throw new Error(`Could not find value for ${args} in ${this.map}`)
+  public getOrThrow(key: string[] | string) {
+    const v = this.get(key);
+    if (v === undefined) throw new Error(`Could not find value for ${key} in ${this.map}`);
     return v;
   }
 
   public set(key: string[] | string, value: V) {
-    this.map.set(Array.isArray(key) ? key.join(':') : key, value)
+    this.map.set(Array.isArray(key) ? key.join(':') : key, value);
   }
 }
