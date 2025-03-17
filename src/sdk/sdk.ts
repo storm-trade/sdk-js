@@ -541,6 +541,7 @@ export class StormTradingSdk {
       stopTriggerPrice: opts.stopTriggerPrice ?? 0n,
       takeTriggerPrice: opts.takeTriggerPrice ?? 0n,
       expiration: opts.expiration ?? limitDefaultExpiration(),
+      referralId: opts.referralId
     };
 
     const baseParams = {

@@ -39,6 +39,10 @@ export type MarketOpenOrderParams = {
    * Order TTL, seconds, default to 15 minutes
    */
   expiration?: number;
+  /**
+   * Referral nft index
+   */
+  referralId?: number;
 };
 
 export type MarketCloseOrderParams = {
@@ -97,6 +101,10 @@ export type LimitOrderParams = {
    * Order TTL, seconds, default to 60 days
    */
   expiration?: number;
+  /**
+   * Referral nft index
+   */
+  referralId?: number;
 }
 
 export type StopLimitOrderParams = {
@@ -140,6 +148,10 @@ export type StopLimitOrderParams = {
    * Order TTL, seconds, default to 60 days
    */
   expiration?: number;
+  /**
+   * Referral nft index
+   */
+  referralId?: number;
 }
 
 export type StopMarketOrderParams = {
@@ -179,6 +191,10 @@ export type StopMarketOrderParams = {
    * Order TTL, seconds, default to 60 days
    */
   expiration?: number;
+  /**
+   * Referral nft index
+   */
+  referralId?: number;
 }
 
 export type StopLossOrderParams = {
@@ -334,6 +350,7 @@ export type CreateAnyLimitOrderParams = {
   stopTriggerPrice?: bigint;
   takeTriggerPrice?: bigint;
   expiration?: number;
+  referralId?: number;
 }
 
 export type CreateSLTPOrderParams = {
