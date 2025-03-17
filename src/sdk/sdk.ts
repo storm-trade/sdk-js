@@ -34,6 +34,9 @@ import {
   StopMarketOrderParams,
   TakeProfitOrderParams,
   WithdrawLiquidityParams,
+  CollateralAssets,
+  AddMarginWithOraclePayload,
+  RemoveMarginWithOraclePayload,
 } from './sdk.types';
 import { PositionManagerData } from '../api-clients/contracts/position-manager/position-manager.types';
 import { Cache } from '../api-clients/utils/cache';
@@ -45,7 +48,6 @@ export class StormTradingSdk {
   private readonly tonClient: TonClientAbstract;
   private readonly traderAddress: Address;
   private readonly jettonWalletsAddressCache: Cache<Address> = new Cache();
-  private readonly oraclePayloadByAssetsCache: Cache<OraclePayload> = new Cache();
   private readonly positionManagerAddressCache: Cache<Address> = new Cache();
   private readonly initializedPositionManagersCache: Cache<boolean> = new Cache();
   private readonly jettonMasters: Cache<JettonMasterContract> = new Cache();
@@ -136,7 +138,7 @@ export class StormTradingSdk {
     }
   }
 
-  async prefetchProvideLiquidityCaches(opts: { assetName: 'TON' | 'USDT' | 'NOT' }) {
+  async prefetchProvideLiquidityCaches(opts: { assetName: CollateralAssets }) {
     if (!this.isNativeVault(opts.assetName)) {
       await this.getJettonWalletAddressByAssetName(opts.assetName);
     }
@@ -144,34 +146,29 @@ export class StormTradingSdk {
 
   async prefetchRemoveMarginCaches(opts: {
     baseAssetName: string;
-    collateralAssetName: 'TON' | 'USDT' | 'NOT';
+    collateralAssetName: CollateralAssets;
   }) {
     await this.getPositionManagerAddressByAssets(opts.baseAssetName, opts.collateralAssetName);
-    await this.getOraclePayloadByAssets(opts.baseAssetName, opts.collateralAssetName);
   }
 
   async prefetchAddMarginCaches(opts: {
     baseAssetName: string;
-    collateralAssetName: 'TON' | 'USDT' | 'NOT';
+    collateralAssetName: CollateralAssets;
   }) {
     if (!this.isNativeVault(opts.collateralAssetName)) {
       await this.getJettonWalletAddressByAssetName(opts.collateralAssetName);
     }
-    await this.getOraclePayloadByAssets(opts.baseAssetName, opts.collateralAssetName);
   }
 
-  syncAddMargin(opts: AddMarginParams) {
+  syncAddMargin(opts: AddMarginWithOraclePayload) {
     const { collateralAssetName } = opts;
     const vault = this.stormClient.config.requireVaultConfigByAssetName(collateralAssetName);
     const assetId = this.stormClient.config.requireAssetIndexByName(opts.baseAssetName);
-    const oraclePayload = opts.oraclePayload
-      ? opts.oraclePayload
-      : this.oraclePayloadByAssetsCache.getOrThrow([opts.baseAssetName, collateralAssetName]);
     const orderParams = {
       amount: opts.amount,
       direction: opts.direction,
       assetId,
-      oracle: oraclePayload,
+      oracle: opts.oraclePayload,
     };
     const baseParams = {
       traderAddress: this.traderAddress,
@@ -195,7 +192,8 @@ export class StormTradingSdk {
 
   async addMargin(opts: AddMarginParams): Promise<TXParams> {
     await this.prefetchAddMarginCaches(opts);
-    return this.syncAddMargin(opts);
+    const oraclePayload = await this.getOraclePayloadByAssets(opts.baseAssetName, opts.collateralAssetName);
+    return this.syncAddMargin({ ...opts, oraclePayload });
   }
 
   async createClosePositionOrder(opts: ClosePositionOrderParams): Promise<TXParams> {
@@ -288,14 +286,12 @@ export class StormTradingSdk {
 
   async removeMargin(opts: RemoveMarginParams): Promise<TXParams> {
     await this.prefetchRemoveMarginCaches(opts);
-    return this.syncRemoveMargin(opts);
+    const oraclePayload = await this.getOraclePayloadByAssets(opts.baseAssetName, opts.collateralAssetName);
+    return this.syncRemoveMargin({ ...opts, oraclePayload });
   }
 
-  syncRemoveMargin(opts: RemoveMarginParams) {
+  syncRemoveMargin(opts: RemoveMarginWithOraclePayload) {
     const assetId = this.stormClient.config.requireAssetIndexByName(opts.baseAssetName);
-    const oraclePayload = opts.oraclePayload
-      ? opts.oraclePayload
-      : this.oraclePayloadByAssetsCache.getOrThrow([opts.baseAssetName, opts.collateralAssetName]);
     const positionManagerAddress = this.positionManagerAddressCache.getOrThrow([
       opts.baseAssetName,
       opts.collateralAssetName,
@@ -304,7 +300,7 @@ export class StormTradingSdk {
       assetId,
       amount: opts.amount,
       direction: opts.direction,
-      oracle: oraclePayload,
+      oracle: opts.oraclePayload,
     };
     const baseParams = {
       traderAddress: this.traderAddress,
@@ -331,7 +327,7 @@ export class StormTradingSdk {
     });
   }
 
-  async prefetchWithdrawLiquidityCaches(assetName: 'TON' | 'USDT' | 'NOT') {
+  async prefetchWithdrawLiquidityCaches(assetName: CollateralAssets) {
     if (this.lpWalletsAddressCache.get(assetName)) {
       return;
     }
@@ -449,7 +445,6 @@ export class StormTradingSdk {
         ...oraclePayload,
         oraclePayloadKind: 'simple',
       } as const;
-      this.oraclePayloadByAssetsCache.set([baseAssetName, collateralAssetName], oraclePayloadResp);
       return oraclePayloadResp;
     }
     const { priceRef, signaturesRef } = oraclePayload;
@@ -460,7 +455,6 @@ export class StormTradingSdk {
         settlementSignaturesRef: signaturesRef,
         oraclePayloadKind: 'withSettlement',
       } as const;
-      this.oraclePayloadByAssetsCache.set([baseAssetName, collateralAssetName], oraclePayloadResp);
       return oraclePayloadResp;
     }
     const oraclePayloadRespForSettlement =
@@ -473,7 +467,6 @@ export class StormTradingSdk {
       settlementSignaturesRef,
       oraclePayloadKind: 'withSettlement',
     } as const;
-    this.oraclePayloadByAssetsCache.set([baseAssetName, collateralAssetName], oraclePayloadResp);
     return oraclePayloadResp;
   }
 

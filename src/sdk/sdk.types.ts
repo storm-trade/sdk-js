@@ -297,6 +297,14 @@ export type RemoveMarginParams = {
   oraclePayload?: OraclePayload;
 }
 
+export interface AddMarginWithOraclePayload extends AddMarginParams {
+  oraclePayload: OraclePayload;
+}
+
+export interface RemoveMarginWithOraclePayload extends RemoveMarginParams {
+  oraclePayload: OraclePayload;
+}
+
 export type ProvideLiquidityParams = {
   /**
    * Which asset will be used as collateral, e.g TON
