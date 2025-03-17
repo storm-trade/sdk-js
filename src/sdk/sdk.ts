@@ -114,10 +114,6 @@ export class StormTradingSdk {
 
   syncProvideLiquidityParams(opts: ProvideLiquidityParams) {
     const { assetName } = opts;
-    const traderJettonWalletAddress = this.jettonWalletsAddressCache.get(opts.assetName);
-    if (!traderJettonWalletAddress) {
-      throw new Error(`Jetton wallet for ${opts.assetName} not found`);
-    }
     const vault = this.stormClient.config.requireVaultConfigByAssetName(assetName);
     const baseParams = {
       traderAddress: this.traderAddress,
@@ -128,6 +124,10 @@ export class StormTradingSdk {
     if (this.isNativeVault(assetName)) {
       return createProvideLiquidityTx({ vaultType: 'native', ...baseParams });
     } else {
+      const traderJettonWalletAddress = this.jettonWalletsAddressCache.get(opts.assetName);
+      if (!traderJettonWalletAddress) {
+        throw new Error(`Jetton wallet for ${opts.assetName} not found`);
+      }
       return createProvideLiquidityTx({
         vaultType: 'jetton',
         traderJettonWalletAddress,
@@ -136,8 +136,14 @@ export class StormTradingSdk {
     }
   }
 
-  private async prefetchProvideLiquidityCaches(assetName: 'TON' | 'USDT' | 'NOT') {
-    await this.getJettonWalletAddressByAssetName(assetName);
+  private async prefetchProvideLiquidityCaches({
+    assetName,
+  }: {
+    assetName: 'TON' | 'USDT' | 'NOT';
+  }) {
+    if (!this.isNativeVault(assetName)) {
+      await this.getJettonWalletAddressByAssetName(assetName);
+    }
   }
 
   async addMargin(opts: AddMarginParams): Promise<TXParams> {
@@ -276,10 +282,6 @@ export class StormTradingSdk {
   }
 
   private syncCreateMarketOpenOrderParams(opts: MarketOpenOrderParams) {
-    const traderJettonWalletAddress = this.jettonWalletsAddressCache.get(opts.collateralAssetName);
-    if (!traderJettonWalletAddress) {
-      throw new Error(`Jetton wallet for ${opts.collateralAssetName} not found`);
-    }
     const positionManagerAddress = this.positionManagerAddressCache.get(
       opts.baseAssetName + ':' + opts.collateralAssetName,
     );
@@ -314,6 +316,12 @@ export class StormTradingSdk {
         vaultType: 'native',
       });
     } else {
+      const traderJettonWalletAddress = this.jettonWalletsAddressCache.get(
+        opts.collateralAssetName,
+      );
+      if (!traderJettonWalletAddress) {
+        throw new Error(`Jetton wallet for ${opts.collateralAssetName} not found`);
+      }
       return createMarketOrderTx({
         orderParams,
         ...baseParams,
