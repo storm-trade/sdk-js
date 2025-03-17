@@ -297,13 +297,9 @@ export type RemoveMarginParams = {
   oraclePayload?: OraclePayload;
 }
 
-export interface AddMarginWithOraclePayload extends AddMarginParams {
-  oraclePayload: OraclePayload;
-}
+export type AddMarginWithOraclePayload = AddMarginParams & { oraclePayload: OraclePayload }
 
-export interface RemoveMarginWithOraclePayload extends RemoveMarginParams {
-  oraclePayload: OraclePayload;
-}
+export type RemoveMarginWithOraclePayload =  RemoveMarginParams & { oraclePayload: OraclePayload }
 
 export type ProvideLiquidityParams = {
   /**
