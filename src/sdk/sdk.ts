@@ -24,12 +24,13 @@ import {
 import {
   AddMarginParams,
   AddMarginWithOraclePayload,
+  AssetsParams,
   CancelOrderParams,
-  MarketCloseOrderParams as ClosePositionOrderParams,
   CollateralAssets,
   CreateAnyLimitOrderParams,
   CreateSLTPOrderParams,
   LimitOrderParams,
+  MarketCloseOrderParams as ClosePositionOrderParams,
   MarketOpenOrderParams,
   ProvideLiquidityParams,
   RemoveMarginParams,
@@ -72,10 +73,8 @@ export class StormTradingSdk {
     ]);
   }
 
-  async getPositionManagerAddressByAssets(
-    baseAssetName: string,
-    collateralAssetName: string,
-  ): Promise<Address> {
+  async getPositionManagerAddressByAssets(opts: AssetsParams): Promise<Address> {
+    const { baseAssetName, collateralAssetName } = opts;
     const positionAddressByAssetNameAndBaseAsset = this.positionManagerAddressCache.get([
       baseAssetName,
       collateralAssetName,
@@ -98,246 +97,26 @@ export class StormTradingSdk {
     return positionManagerAddress;
   }
 
-  async getPositionManagerData(
-    positionManagerAddress: Address,
-  ): Promise<PositionManagerData | null> {
+  async getPositionManagerData(positionManagerAddress: Address): Promise<PositionManagerData | null> {
     const positionManagerContract = this.getPositionManagerContract(
       positionManagerAddress.toRawString(),
     );
     return positionManagerContract.getData();
   }
 
-  async createMarketOpenOrder(opts: MarketOpenOrderParams): Promise<TXParams> {
-    await this.prefetchCreateMarketOpenOrderCaches(opts);
-    return this.syncCreateMarketOpenOrderParams(opts);
-  }
+  // Market open
 
-  async provideLiquidity(opts: ProvideLiquidityParams): Promise<TXParams> {
-    await this.prefetchProvideLiquidityCaches(opts);
-    return this.syncProvideLiquidityParams(opts);
-  }
-
-  syncProvideLiquidityParams(opts: ProvideLiquidityParams) {
-    const { assetName } = opts;
-    const vault = this.stormClient.config.requireVaultConfigByAssetName(assetName);
-    const baseParams = {
-      traderAddress: this.traderAddress,
-      amount: opts.amount,
-      vaultAddress: Address.parse(vault.vaultAddress),
-    };
-
-    if (this.isNativeVault(assetName)) {
-      return createProvideLiquidityTx({ vaultType: 'native', ...baseParams });
-    } else {
-      const traderJettonWalletAddress = this.jettonWalletsAddressCache.getOrThrow(opts.assetName);
-      return createProvideLiquidityTx({
-        vaultType: 'jetton',
-        traderJettonWalletAddress,
-        ...baseParams,
-      });
-    }
-  }
-
-  async prefetchProvideLiquidityCaches(opts: { assetName: CollateralAssets }) {
-    if (!this.isNativeVault(opts.assetName)) {
-      await this.getJettonWalletAddressByAssetName(opts.assetName);
-    }
-  }
-
-  async prefetchRemoveMarginCaches(opts: {
-    baseAssetName: string;
-    collateralAssetName: CollateralAssets;
-  }) {
-    await this.getPositionManagerAddressByAssets(opts.baseAssetName, opts.collateralAssetName);
-  }
-
-  async prefetchAddMarginCaches(opts: {
-    baseAssetName: string;
-    collateralAssetName: CollateralAssets;
-  }) {
-    if (!this.isNativeVault(opts.collateralAssetName)) {
-      await this.getJettonWalletAddressByAssetName(opts.collateralAssetName);
-    }
-  }
-
-  syncAddMargin(opts: AddMarginWithOraclePayload) {
+  async prefetchCreateMarketOpenOrder(opts: AssetsParams): Promise<void> {
     const { collateralAssetName } = opts;
-    const vault = this.stormClient.config.requireVaultConfigByAssetName(collateralAssetName);
-    const assetId = this.stormClient.config.requireAssetIndexByName(opts.baseAssetName);
-    const orderParams = {
-      amount: opts.amount,
-      direction: opts.direction,
-      assetId,
-      oracle: opts.oraclePayload,
-    };
-    const baseParams = {
-      traderAddress: this.traderAddress,
-      amount: opts.amount,
-      vaultAddress: Address.parse(vault.vaultAddress),
-      orderParams,
-    };
+    const positionManagerAddress = await this.getPositionManagerAddressByAssets(opts);
+    await this.checkIsPositionManagerInitialized(positionManagerAddress);
 
-    if (this.isNativeVault(collateralAssetName)) {
-      return createAddMarginTx({ vaultType: 'native', ...baseParams });
-    } else {
-      const traderJettonWalletAddress =
-        this.jettonWalletsAddressCache.getOrThrow(collateralAssetName);
-      return createAddMarginTx({
-        vaultType: 'jetton',
-        traderJettonWalletAddress,
-        ...baseParams,
-      });
+    if (!this.isNativeVault(collateralAssetName)) {
+      await this.getJettonWalletAddressByAssetName(collateralAssetName);
     }
   }
 
-  async addMargin(opts: AddMarginParams): Promise<TXParams> {
-    await this.prefetchAddMarginCaches(opts);
-    const oraclePayload = await this.getOraclePayloadByAssets(opts.baseAssetName, opts.collateralAssetName);
-    return this.syncAddMargin({ ...opts, oraclePayload });
-  }
-
-  async createClosePositionOrder(opts: ClosePositionOrderParams): Promise<TXParams> {
-    return this.createTakeProfitOrder({
-      ...opts,
-      amount: opts.size,
-      triggerPrice: 0n,
-    });
-  }
-
-  syncCreateClosePositionOrder(opts: ClosePositionOrderParams) {
-    return this.syncCreateTakeProfitOrder({
-      ...opts,
-      amount: opts.size,
-      triggerPrice: 0n,
-    });
-  }
-
-  async createStopLossOrder(opts: StopLossOrderParams): Promise<TXParams> {
-    return this.createSLTPOrder({
-      ...opts,
-      type: OrderType.stopLoss,
-    });
-  }
-
-  syncCreateStopLossOrder(opts: StopLossOrderParams) {
-    return this.syncCreateSLTPOrder({
-      ...opts,
-      type: OrderType.stopLoss,
-    });
-  }
-
-  async createTakeProfitOrder(opts: TakeProfitOrderParams): Promise<TXParams> {
-    return this.createSLTPOrder({
-      ...opts,
-      type: OrderType.takeProfit,
-    });
-  }
-
-  syncCreateTakeProfitOrder(opts: TakeProfitOrderParams) {
-    return this.syncCreateSLTPOrder({
-      ...opts,
-      type: OrderType.takeProfit,
-    });
-  }
-
-  async createLimitOrder(opts: LimitOrderParams): Promise<TXParams> {
-    return this.internalCreateLimitOrder({ ...opts, stopPrice: 0n });
-  }
-
-  syncCreateLimitOrder(opts: LimitOrderParams) {
-    return this.syncInternalCreateLimitOrder({ ...opts, stopPrice: 0n });
-  }
-
-  async createStopLimitOrder(opts: StopLimitOrderParams): Promise<TXParams> {
-    return this.internalCreateLimitOrder(opts);
-  }
-
-  syncCreateStopLimitOrder(opts: StopLimitOrderParams) {
-    return this.syncInternalCreateLimitOrder(opts);
-  }
-
-  async createStopMarketOrder(opts: StopMarketOrderParams): Promise<TXParams> {
-    return this.internalCreateLimitOrder({ ...opts, limitPrice: 0n });
-  }
-
-  syncCreateStopMarketOrder(opts: StopMarketOrderParams) {
-    return this.syncInternalCreateLimitOrder({ ...opts, limitPrice: 0n });
-  }
-
-  async cancelOrder(opts: CancelOrderParams): Promise<TXParams> {
-    await this.prefetchCancelOrderCaches(opts);
-    return this.syncCreateCancelOrder(opts);
-  }
-
-  syncCreateCancelOrder(opts: CancelOrderParams) {
-    const positionManagerAddress = this.positionManagerAddressCache.getOrThrow([
-      opts.baseAssetName,
-      opts.collateralAssetName,
-    ]);
-    return createCancelOrderTx({
-      positionManagerAddress,
-      orderParams: {
-        orderType: opts.orderType,
-        orderIndex: opts.orderIndex,
-        direction: opts.direction,
-      },
-    });
-  }
-
-  async removeMargin(opts: RemoveMarginParams): Promise<TXParams> {
-    await this.prefetchRemoveMarginCaches(opts);
-    const oraclePayload = await this.getOraclePayloadByAssets(opts.baseAssetName, opts.collateralAssetName);
-    return this.syncRemoveMargin({ ...opts, oraclePayload });
-  }
-
-  syncRemoveMargin(opts: RemoveMarginWithOraclePayload) {
-    const assetId = this.stormClient.config.requireAssetIndexByName(opts.baseAssetName);
-    const positionManagerAddress = this.positionManagerAddressCache.getOrThrow([
-      opts.baseAssetName,
-      opts.collateralAssetName,
-    ]);
-    const orderParams = {
-      assetId,
-      amount: opts.amount,
-      direction: opts.direction,
-      oracle: opts.oraclePayload,
-    };
-    const baseParams = {
-      traderAddress: this.traderAddress,
-      orderParams,
-      amount: opts.amount,
-      positionManagerAddress,
-    };
-
-    return createRemoveMarginTx({ ...baseParams });
-  }
-
-  async withdrawLiquidity(opts: WithdrawLiquidityParams): Promise<TXParams> {
-    const { assetName } = opts;
-    await this.prefetchWithdrawLiquidityCaches(assetName);
-    return this.syncWithdrawLiquidity(opts);
-  }
-
-  syncWithdrawLiquidity(opts: WithdrawLiquidityParams) {
-    const lpWalletAddress = this.lpWalletsAddressCache.getOrThrow(opts.assetName);
-    return createWithdrawLiquidityTx({
-      lpWalletAddress,
-      amount: opts.amountOfSLP,
-      userAddress: this.traderAddress,
-    });
-  }
-
-  async prefetchWithdrawLiquidityCaches(assetName: CollateralAssets) {
-    if (this.lpWalletsAddressCache.get(assetName)) {
-      return;
-    }
-    const vault = this.stormClient.config.requireVaultConfigByAssetName(assetName);
-    const lpJettonMasterContract = this.getJettonMasterContract(vault.lpJettonMaster);
-    const lpWalletAddress = await lpJettonMasterContract.getJettonWalletAddress(this.traderAddress);
-    this.lpWalletsAddressCache.set(assetName, lpWalletAddress);
-  }
-
-  syncCreateMarketOpenOrderParams(opts: MarketOpenOrderParams) {
+  syncCreateMarketOpenOrder(opts: MarketOpenOrderParams): TXParams {
     const positionManagerAddress = this.positionManagerAddressCache.getOrThrow([
       opts.baseAssetName,
       opts.collateralAssetName,
@@ -381,23 +160,269 @@ export class StormTradingSdk {
     }
   }
 
-  async prefetchCreateMarketOpenOrderCaches(opts: {
-    baseAssetName: string;
-    collateralAssetName: string;
-  }) {
-    const { baseAssetName, collateralAssetName } = opts;
-    const positionManagerAddress = await this.getPositionManagerAddressByAssets(
-      baseAssetName,
-      collateralAssetName,
-    );
-    await this.checkIsPositionManagerInitialized(positionManagerAddress);
+  async createMarketOpenOrder(opts: MarketOpenOrderParams): Promise<TXParams> {
+    await this.prefetchCreateMarketOpenOrder(opts);
+    return this.syncCreateMarketOpenOrder(opts);
+  }
 
-    if (!this.isNativeVault(collateralAssetName)) {
-      await this.getJettonWalletAddressByAssetName(collateralAssetName);
+  // Market close
+
+  prefetchCreateClosePositionOrder = this.prefetchSLTPOrderCaches;
+
+  syncCreateClosePositionOrder(opts: ClosePositionOrderParams): TXParams {
+    return this.syncCreateTakeProfitOrder({
+      ...opts,
+      amount: opts.size,
+      triggerPrice: 0n,
+    });
+  }
+
+  async createClosePositionOrder(opts: ClosePositionOrderParams): Promise<TXParams> {
+    return this.createTakeProfitOrder({
+      ...opts,
+      amount: opts.size,
+      triggerPrice: 0n,
+    });
+  }
+
+  // Limit order
+
+  prefetchCreateLimitOrder = this.prefetchCreateMarketOpenOrder;
+
+  syncCreateLimitOrder(opts: LimitOrderParams): TXParams {
+    return this.syncInternalCreateLimitOrder({ ...opts, stopPrice: 0n });
+  }
+
+  async createLimitOrder(opts: LimitOrderParams): Promise<TXParams> {
+    return this.internalCreateLimitOrder({ ...opts, stopPrice: 0n });
+  }
+
+  // Stop limit order
+
+  prefetchCreateStopLimitOrder = this.prefetchCreateMarketOpenOrder;
+
+  syncCreateStopLimitOrder(opts: StopLimitOrderParams): TXParams {
+    return this.syncInternalCreateLimitOrder(opts);
+  }
+
+  async createStopLimitOrder(opts: StopLimitOrderParams): Promise<TXParams> {
+    return this.internalCreateLimitOrder(opts);
+  }
+
+  // Stop market order
+
+  prefetchCreateStopMarketOrder = this.prefetchCreateMarketOpenOrder;
+
+  syncCreateStopMarketOrder(opts: StopMarketOrderParams): TXParams {
+    return this.syncInternalCreateLimitOrder({ ...opts, limitPrice: 0n });
+  }
+
+  async createStopMarketOrder(opts: StopMarketOrderParams): Promise<TXParams> {
+    return this.internalCreateLimitOrder({ ...opts, limitPrice: 0n });
+  }
+
+  // Stop loss order
+
+  prefetchCreteStopLossOrder = this.prefetchSLTPOrderCaches;
+
+  syncCreateStopLossOrder(opts: StopLossOrderParams): TXParams {
+    return this.syncCreateSLTPOrder({
+      ...opts,
+      type: OrderType.stopLoss,
+    });
+  }
+
+  async createStopLossOrder(opts: StopLossOrderParams): Promise<TXParams> {
+    return this.createSLTPOrder({
+      ...opts,
+      type: OrderType.stopLoss,
+    });
+  }
+
+  // Take profit order
+
+  prefetchCreteTakeProfitOrder = this.prefetchSLTPOrderCaches;
+
+  syncCreateTakeProfitOrder(opts: TakeProfitOrderParams): TXParams {
+    return this.syncCreateSLTPOrder({
+      ...opts,
+      type: OrderType.takeProfit,
+    });
+  }
+
+  async createTakeProfitOrder(opts: TakeProfitOrderParams): Promise<TXParams> {
+    return this.createSLTPOrder({
+      ...opts,
+      type: OrderType.takeProfit,
+    });
+  }
+
+  // Add margin
+
+  async prefetchAddMarginCaches(opts: AssetsParams): Promise<void> {
+    if (!this.isNativeVault(opts.collateralAssetName)) {
+      await this.getJettonWalletAddressByAssetName(opts.collateralAssetName);
     }
   }
 
-  prefetchInternalLimitOrderCaches = this.prefetchCreateMarketOpenOrderCaches;
+  syncAddMargin(opts: AddMarginWithOraclePayload): TXParams {
+    const { collateralAssetName } = opts;
+    const vault = this.stormClient.config.requireVaultConfigByAssetName(collateralAssetName);
+    const assetId = this.stormClient.config.requireAssetIndexByName(opts.baseAssetName);
+    const orderParams = {
+      amount: opts.amount,
+      direction: opts.direction,
+      assetId,
+      oracle: opts.oraclePayload,
+    };
+    const baseParams = {
+      traderAddress: this.traderAddress,
+      amount: opts.amount,
+      vaultAddress: Address.parse(vault.vaultAddress),
+      orderParams,
+    };
+
+    if (this.isNativeVault(collateralAssetName)) {
+      return createAddMarginTx({ vaultType: 'native', ...baseParams });
+    } else {
+      const traderJettonWalletAddress =
+        this.jettonWalletsAddressCache.getOrThrow(collateralAssetName);
+      return createAddMarginTx({
+        vaultType: 'jetton',
+        traderJettonWalletAddress,
+        ...baseParams,
+      });
+    }
+  }
+
+  async addMargin(opts: AddMarginParams): Promise<TXParams> {
+    await this.prefetchAddMarginCaches(opts);
+    const oraclePayload = await this.getOraclePayloadByAssets(opts);
+    return this.syncAddMargin({ ...opts, oraclePayload });
+  }
+
+  // Remove margin
+
+  async prefetchRemoveMarginCaches(opts: AssetsParams): Promise<void> {
+    await this.getPositionManagerAddressByAssets(opts);
+  }
+
+  syncRemoveMargin(opts: RemoveMarginWithOraclePayload): TXParams {
+    const assetId = this.stormClient.config.requireAssetIndexByName(opts.baseAssetName);
+    const positionManagerAddress = this.positionManagerAddressCache.getOrThrow([
+      opts.baseAssetName,
+      opts.collateralAssetName,
+    ]);
+    const orderParams = {
+      assetId,
+      amount: opts.amount,
+      direction: opts.direction,
+      oracle: opts.oraclePayload,
+    };
+    const baseParams = {
+      traderAddress: this.traderAddress,
+      orderParams,
+      amount: opts.amount,
+      positionManagerAddress,
+    };
+
+    return createRemoveMarginTx({ ...baseParams });
+  }
+
+  async removeMargin(opts: RemoveMarginParams): Promise<TXParams> {
+    await this.prefetchRemoveMarginCaches(opts);
+    const oraclePayload = await this.getOraclePayloadByAssets(opts);
+    return this.syncRemoveMargin({ ...opts, oraclePayload });
+  }
+
+  // Cancel order
+
+  async prefetchCancelOrderCaches(opts: AssetsParams): Promise<void> {
+    await this.getPositionManagerAddressByAssets(opts);
+  }
+
+  syncCreateCancelOrder(opts: CancelOrderParams): TXParams {
+    const positionManagerAddress = this.positionManagerAddressCache.getOrThrow([
+      opts.baseAssetName,
+      opts.collateralAssetName,
+    ]);
+    return createCancelOrderTx({
+      positionManagerAddress,
+      orderParams: {
+        orderType: opts.orderType,
+        orderIndex: opts.orderIndex,
+        direction: opts.direction,
+      },
+    });
+  }
+
+  async cancelOrder(opts: CancelOrderParams): Promise<TXParams> {
+    await this.prefetchCancelOrderCaches(opts);
+    return this.syncCreateCancelOrder(opts);
+  }
+
+  // Provide liquidity
+
+  async prefetchProvideLiquidity(opts: ProvideLiquidityParams): Promise<void> {
+    if (!this.isNativeVault(opts.assetName)) {
+      await this.getJettonWalletAddressByAssetName(opts.assetName);
+    }
+  }
+
+  syncProvideLiquidity(opts: ProvideLiquidityParams): TXParams {
+    const { assetName } = opts;
+    const vault = this.stormClient.config.requireVaultConfigByAssetName(assetName);
+    const baseParams = {
+      traderAddress: this.traderAddress,
+      amount: opts.amount,
+      vaultAddress: Address.parse(vault.vaultAddress),
+    };
+
+    if (this.isNativeVault(assetName)) {
+      return createProvideLiquidityTx({ vaultType: 'native', ...baseParams });
+    } else {
+      const traderJettonWalletAddress = this.jettonWalletsAddressCache.getOrThrow(opts.assetName);
+      return createProvideLiquidityTx({
+        vaultType: 'jetton',
+        traderJettonWalletAddress,
+        ...baseParams,
+      });
+    }
+  }
+
+  async provideLiquidity(opts: ProvideLiquidityParams): Promise<TXParams> {
+    await this.prefetchProvideLiquidity(opts);
+    return this.syncProvideLiquidity(opts);
+  }
+
+  // Withdraw liquidity
+
+  async prefetchWithdrawLiquidityCaches(assetName: CollateralAssets): Promise<void> {
+    if (this.lpWalletsAddressCache.get(assetName)) {
+      return;
+    }
+    const vault = this.stormClient.config.requireVaultConfigByAssetName(assetName);
+    const lpJettonMasterContract = this.getJettonMasterContract(vault.lpJettonMaster);
+    const lpWalletAddress = await lpJettonMasterContract.getJettonWalletAddress(this.traderAddress);
+    this.lpWalletsAddressCache.set(assetName, lpWalletAddress);
+  }
+
+  syncWithdrawLiquidity(opts: WithdrawLiquidityParams): TXParams {
+    const lpWalletAddress = this.lpWalletsAddressCache.getOrThrow(opts.assetName);
+    return createWithdrawLiquidityTx({
+      lpWalletAddress,
+      amount: opts.amountOfSLP,
+      userAddress: this.traderAddress,
+    });
+  }
+
+  async withdrawLiquidity(opts: WithdrawLiquidityParams): Promise<TXParams> {
+    const { assetName } = opts;
+    await this.prefetchWithdrawLiquidityCaches(assetName);
+    return this.syncWithdrawLiquidity(opts);
+  }
+
+  //
 
   private async getJettonWalletAddressByAssetName(collateralAssetName: string): Promise<Address> {
     let jettonWalletAddress = this.jettonWalletsAddressCache.get(collateralAssetName);
@@ -415,9 +440,7 @@ export class StormTradingSdk {
     return collateralAssetName === 'TON';
   }
 
-  private async checkIsPositionManagerInitialized(
-    positionManagerAddress: Address,
-  ): Promise<boolean> {
+  private async checkIsPositionManagerInitialized(positionManagerAddress: Address): Promise<boolean> {
     if (this.initializedPositionManagersCache.get(positionManagerAddress.toRawString())) {
       return true;
     }
@@ -434,40 +457,35 @@ export class StormTradingSdk {
     }
   }
 
-  private async getOraclePayloadByAssets(
-    baseAssetName: string,
-    collateralAssetName: string,
-  ): Promise<OraclePayload> {
+  private async getOraclePayloadByAssets(opts: AssetsParams): Promise<OraclePayload> {
+    const { baseAssetName, collateralAssetName } = opts;
     const oraclePriceResp = await this.stormClient.oracleClient.getPrice(baseAssetName);
     const oraclePayload = { ...oraclePriceResp.result_message };
     if (collateralAssetName === 'USDT') {
-      const oraclePayloadResp = {
+      return {
         ...oraclePayload,
         oraclePayloadKind: 'simple',
       } as const;
-      return oraclePayloadResp;
     }
     const { priceRef, signaturesRef } = oraclePayload;
     if (collateralAssetName === baseAssetName) {
-      const oraclePayloadResp = {
+      return {
         ...oraclePayload,
         settlementPriceRef: priceRef,
         settlementSignaturesRef: signaturesRef,
         oraclePayloadKind: 'withSettlement',
       } as const;
-      return oraclePayloadResp;
     }
     const oraclePayloadRespForSettlement =
       await this.stormClient.oracleClient.getPrice(collateralAssetName);
     const { priceRef: settlementPriceRef, signaturesRef: settlementSignaturesRef } =
       oraclePayloadRespForSettlement.result_message;
-    const oraclePayloadResp = {
+    return {
       ...oraclePayload,
       settlementPriceRef,
       settlementSignaturesRef,
       oraclePayloadKind: 'withSettlement',
     } as const;
-    return oraclePayloadResp;
   }
 
   private async createSLTPOrder(opts: CreateSLTPOrderParams): Promise<TXParams> {
@@ -475,7 +493,7 @@ export class StormTradingSdk {
     return this.syncCreateSLTPOrder(opts);
   }
 
-  private syncCreateSLTPOrder(opts: CreateSLTPOrderParams) {
+  private syncCreateSLTPOrder(opts: CreateSLTPOrderParams): TXParams {
     const positionManagerAddress = this.positionManagerAddressCache.getOrThrow([
       opts.baseAssetName,
       opts.collateralAssetName,
@@ -492,20 +510,16 @@ export class StormTradingSdk {
     });
   }
 
-  async prefetchSLTPOrderCaches(opts: { baseAssetName: string; collateralAssetName: string }) {
-    await this.getPositionManagerAddressByAssets(opts.baseAssetName, opts.collateralAssetName);
-  }
-
-  async prefetchCancelOrderCaches(opts: { baseAssetName: string; collateralAssetName: string }) {
-    await this.getPositionManagerAddressByAssets(opts.baseAssetName, opts.collateralAssetName);
+  private async prefetchSLTPOrderCaches(opts: AssetsParams): Promise<void> {
+    await this.getPositionManagerAddressByAssets(opts);
   }
 
   private async internalCreateLimitOrder(opts: CreateAnyLimitOrderParams): Promise<TXParams> {
-    await this.prefetchInternalLimitOrderCaches(opts);
+    await this.prefetchCreateMarketOpenOrder(opts);
     return this.syncInternalCreateLimitOrder(opts);
   }
 
-  private syncInternalCreateLimitOrder(opts: CreateAnyLimitOrderParams) {
+  private syncInternalCreateLimitOrder(opts: CreateAnyLimitOrderParams): TXParams {
     const vault = this.stormClient.config.requireVaultConfigByAssetName(opts.collateralAssetName);
     const assetId = this.stormClient.config.requireAssetIndexByName(opts.baseAssetName);
     const positionManagerAddress = this.positionManagerAddressCache.getOrThrow([

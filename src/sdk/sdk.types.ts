@@ -299,7 +299,7 @@ export type RemoveMarginParams = {
 
 export type AddMarginWithOraclePayload = AddMarginParams & { oraclePayload: OraclePayload }
 
-export type RemoveMarginWithOraclePayload =  RemoveMarginParams & { oraclePayload: OraclePayload }
+export type RemoveMarginWithOraclePayload = RemoveMarginParams & { oraclePayload: OraclePayload }
 
 export type ProvideLiquidityParams = {
   /**
@@ -343,4 +343,9 @@ export type CreateSLTPOrderParams = {
   type: OrderType.stopLoss | OrderType.takeProfit
   amount: bigint
   triggerPrice: bigint
+}
+
+export type AssetsParams = {
+  baseAssetName: string;
+  collateralAssetName: string;
 }
