@@ -1,8 +1,14 @@
 export class Cache<V> {
   private readonly map: Map<unknown, V> = new Map();
 
+  private readonly cacheKeySeparator = ':';
+
+  private checkFlatOrMap(key: string[] | string) {
+    return Array.isArray(key) ? key.join(this.cacheKeySeparator) : key;
+  }
+
   public get(key: string[] | string) {
-    return this.map.get(Array.isArray(key) ? key.join(':') : key);
+    return this.map.get(this.checkFlatOrMap(key));
   }
 
   public getOrThrow(key: string[] | string) {
@@ -12,6 +18,6 @@ export class Cache<V> {
   }
 
   public set(key: string[] | string, value: V) {
-    this.map.set(Array.isArray(key) ? key.join(':') : key, value);
+    this.map.set(this.checkFlatOrMap(key), value);
   }
 }
