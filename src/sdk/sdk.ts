@@ -140,6 +140,7 @@ export class StormTradingSdk {
       minBaseAssetAmount: opts.minBaseAssetAmount ?? 0n,
       stopTriggerPrice: opts.stopTriggerPrice ?? 0n,
       takeTriggerPrice: opts.takeTriggerPrice ?? 0n,
+      referralId: opts.referralId,
     };
     if (this.isNativeVault(opts.collateralAssetName)) {
       return createMarketOrderTx({
@@ -541,7 +542,7 @@ export class StormTradingSdk {
       stopTriggerPrice: opts.stopTriggerPrice ?? 0n,
       takeTriggerPrice: opts.takeTriggerPrice ?? 0n,
       expiration: opts.expiration ?? limitDefaultExpiration(),
-      referralId: opts.referralId
+      referralId: opts.referralId,
     };
 
     const baseParams = {
