@@ -104,6 +104,7 @@ export type NativeProvideLiquidityParams = {
  */
 export type JettonProvideLiquidityParams = {
   vaultType: 'jetton';
+  traderAddress: Address;
   traderJettonWalletAddress: Address
   amount: bigint
   vaultAddress: Address

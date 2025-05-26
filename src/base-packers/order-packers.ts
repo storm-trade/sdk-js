@@ -128,7 +128,6 @@ export function packCancelOrder(opts: PackCancelOrderParams): Cell {
 }
 
 export function packInJettonPayload(params: PackJettonPayloadParams): Cell {
-  console.log({ to: params.to, responseAddress: params.responseAddress });
   return beginCell()
     .storeUint(0xf8a7ea5, 32)
     .storeUint(0, 64) // op, queryId

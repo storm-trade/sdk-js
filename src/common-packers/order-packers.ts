@@ -107,7 +107,7 @@ function packJettonProvideLiquidity(opts: JettonProvideLiquidityParams): TXParam
   const body = packInJettonPayload({
     amount: opts.amount,
     to: opts.vaultAddress,
-    responseAddress: opts.traderJettonWalletAddress,
+    responseAddress: opts.traderAddress,
     forwardPayload: packProvideLiquidity(),
     forwardTonAmount: Fees.provideLiquidity.forwardValue,
   });
