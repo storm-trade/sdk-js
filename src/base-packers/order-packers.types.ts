@@ -83,6 +83,7 @@ export type PackJettonPayloadParams = {
   customPayload?: Cell
   forwardTonAmount?: bigint
   forwardPayload: Cell
+  queryId?: number
 }
 
 export type PackNativePayloadParams = {

@@ -33,6 +33,7 @@ export type NativeLimitMarketOrderParams<T> = {
 
 export type JettonLimitMarketOrderParams<T> = {
   vaultType: 'jetton';
+  queryId?: number;
   traderJettonWalletAddress: Address
   traderAddress: Address
   amount: bigint
@@ -78,6 +79,7 @@ export type JettonAddMarginParams = {
   amount: bigint
   vaultAddress: Address
   orderParams: PackAddMarginParams;
+  queryId?: number
 };
 
 export type AddMarginParams = NativeAddMarginParams | JettonAddMarginParams;
@@ -105,9 +107,10 @@ export type NativeProvideLiquidityParams = {
 export type JettonProvideLiquidityParams = {
   vaultType: 'jetton';
   traderAddress: Address;
-  traderJettonWalletAddress: Address
-  amount: bigint
-  vaultAddress: Address
+  traderJettonWalletAddress: Address;
+  amount: bigint;
+  vaultAddress: Address;
+  queryId?: number;
 }
 
 export type ProvideLiquidityParams = NativeProvideLiquidityParams | JettonProvideLiquidityParams

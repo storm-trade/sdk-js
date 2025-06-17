@@ -351,6 +351,7 @@ export type CreateAnyLimitOrderParams = {
   takeTriggerPrice?: bigint;
   expiration?: number;
   referralId?: number;
+  queryId?: number;
 }
 
 export type CreateSLTPOrderParams = {

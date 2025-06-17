@@ -35,6 +35,7 @@ function packJettonCreateOrder(opts: JettonLimitMarketOrderParams<unknown>, forw
   const body = packInJettonPayload({
     amount: opts.amount,
     to: opts.vaultAddress,
+    queryId: opts.queryId,
     responseAddress: opts.traderAddress,
     forwardTonAmount: Fees.createOrder.forwardValue,
     forwardPayload,
@@ -63,6 +64,7 @@ function packJettonAddMargin(opts: JettonAddMarginParams): TXParams {
   const body = packInJettonPayload({
     amount: opts.amount,
     to: opts.vaultAddress,
+    queryId: opts.queryId,
     responseAddress: opts.traderAddress,
     forwardTonAmount: Fees.addMargin.forwardValue,
     forwardPayload: packAddMargin(opts.orderParams),
@@ -107,6 +109,7 @@ function packJettonProvideLiquidity(opts: JettonProvideLiquidityParams): TXParam
   const body = packInJettonPayload({
     amount: opts.amount,
     to: opts.vaultAddress,
+    queryId: opts.queryId,
     responseAddress: opts.traderAddress,
     forwardPayload: packProvideLiquidity(),
     forwardTonAmount: Fees.provideLiquidity.forwardValue,
