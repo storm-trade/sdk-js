@@ -1,6 +1,7 @@
 import { Direction, OraclePayload, OrderType } from '../base-packers';
+import { Address } from '@ton/ton';
 
-export type CollateralAssets = 'TON' | 'USDT' | 'NOT'
+export type CollateralAssets = 'TON' | 'USDT' | 'NOT' | 'tgUSD'
 
 export type MarketOpenOrderParams = {
   /**
@@ -326,6 +327,10 @@ export type ProvideLiquidityParams = {
    * Amount of collateral asset to use, set decimals based on collateral. E.g 9 for TON, 6 for USDT, 9 for NOT
    */
   amount: bigint;
+  /**
+   * Address to send excess to TON to (trader address by default)
+   */
+  responseAddress?: Address | string;
 }
 
 export type WithdrawLiquidityParams = {
@@ -337,6 +342,10 @@ export type WithdrawLiquidityParams = {
    * Amount of SLP tokens to swap back to collateral assets, 9 decimals
    */
   amountOfSLP: bigint;
+  /**
+   * Address to send excess to TON to (trader address by default)
+   */
+  responseAddress?: Address | string;
 }
 
 export type CreateAnyLimitOrderParams = {

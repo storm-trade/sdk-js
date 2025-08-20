@@ -44,6 +44,7 @@ import {
 
 const marketOpenDefaultExpiration = () => Math.floor(Date.now() / 1000) + 15 * 60;
 const limitDefaultExpiration = () => Math.floor(Date.now() / 1000) + 60 * 24 * 60 * 60;
+const toAddress = (address: Address | string) => address instanceof Address ? address : Address.parse(address);
 
 export class StormTradingSdk {
   private readonly tonClient: TonClientAbstract;
@@ -61,8 +62,7 @@ export class StormTradingSdk {
     tonClient: TonClient | TonClient4 | LiteClient,
     traderAddress: Address | string,
   ) {
-    this.traderAddress =
-      traderAddress instanceof Address ? traderAddress : Address.parse(traderAddress);
+    this.traderAddress = toAddress(traderAddress);
     this.tonClient = new TonClientAbstract(tonClient);
   }
 
@@ -386,6 +386,7 @@ export class StormTradingSdk {
       return createProvideLiquidityTx({
         vaultType: 'jetton',
         traderJettonWalletAddress,
+        responseAddress: opts.responseAddress ? toAddress(opts.responseAddress) : undefined,
         ...baseParams,
       });
     }
@@ -414,6 +415,7 @@ export class StormTradingSdk {
       lpWalletAddress,
       amount: opts.amountOfSLP,
       userAddress: this.traderAddress,
+      responseAddress: opts.responseAddress ? toAddress(opts.responseAddress) : undefined,
     });
   }
 

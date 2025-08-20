@@ -110,6 +110,7 @@ export type JettonProvideLiquidityParams = {
   traderJettonWalletAddress: Address;
   amount: bigint;
   vaultAddress: Address;
+  responseAddress?: Address;
   queryId?: number;
 }
 
@@ -122,4 +123,5 @@ export type WithdrawLiquidityParams = {
   amount: bigint;
   userAddress: Address;
   lpWalletAddress: Address;
+  responseAddress?: Address;
 };

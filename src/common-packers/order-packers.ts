@@ -110,7 +110,7 @@ function packJettonProvideLiquidity(opts: JettonProvideLiquidityParams): TXParam
     amount: opts.amount,
     to: opts.vaultAddress,
     queryId: opts.queryId,
-    responseAddress: opts.traderAddress,
+    responseAddress: opts.responseAddress ?? opts.traderAddress,
     forwardPayload: packProvideLiquidity(),
     forwardTonAmount: Fees.provideLiquidity.forwardValue,
   });
@@ -186,7 +186,7 @@ export function createProvideLiquidityTx(opts: ProvideLiquidityParams): TXParams
 export function createWithdrawLiquidityTx(opts: WithdrawLiquidityParams): TXParams {
   const body = packWithdrawLiquidity({
     amount: opts.amount,
-    userAddress: opts.userAddress,
+    userAddress: opts.responseAddress ?? opts.userAddress,
   });
   return {
     to: opts.lpWalletAddress,
