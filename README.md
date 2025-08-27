@@ -29,7 +29,7 @@ const ORACLE_URL = 'https://oracle.stage.stormtrade.dev';
 const STORM_API_URL = 'https://api.stage.stormtrade.dev/api';
 const TON_CENTER = 'https://testnet.toncenter.com/api/v2/jsonRPC';
 
-// For Mainnet use (when available)
+// For Mainnet use
 // const ORACLE_URL = 'https://oracle.storm.tg';
 // const STORM_API_URL = 'https://api5.storm.tg/api';
 // const TON_CENTER = 'https://toncenter.com/api/v2/jsonRPC';
