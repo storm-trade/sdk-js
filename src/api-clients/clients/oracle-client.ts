@@ -11,13 +11,16 @@ export type LastPriceResponse = {
 
 export class OracleClient {
   private client: ReturnType<typeof createFetchInstance>;
+  private apiVersion: 1 | 2;
 
-  constructor(baseURL: string) {
+  constructor(baseURL: string, apiVersion: 1 | 2) {
     this.client = createFetchInstance({ baseURL });
+    this.apiVersion = apiVersion || 2;
   }
 
   async getPrice(symbol: string) {
-    const res = await this.client.get(`feed/${symbol}/last`);
+    const url = this.apiVersion === 1 ? `feed/${symbol}/last` : `v2/signed/${symbol}`
+    const res = await this.client.get(url);
     const jsonResp: LastPriceResponse = await res.json();
     const { price_ref, signatures_ref } = jsonResp.result_message;
 
