@@ -127,8 +127,7 @@ export class StormTradingSdk {
 
   async prefetchCreateMarketOpenOrder(opts: AssetsParams): Promise<void> {
     const { collateralAssetName } = opts;
-    const positionManagerAddress = await this.getPositionManagerAddressByAssets(opts);
-    await this.checkIsPositionManagerInitialized(positionManagerAddress);
+    await this.getPositionManagerAddressByAssets(opts);
 
     if (!this.isNativeVault(collateralAssetName)) {
       await this.getJettonWalletAddressByAssetName(collateralAssetName);
@@ -458,24 +457,6 @@ export class StormTradingSdk {
 
   private isNativeVault(collateralAssetName: string): boolean {
     return collateralAssetName === 'TON';
-  }
-
-  private async checkIsPositionManagerInitialized(positionManagerAddress: Address): Promise<boolean> {
-    if (this.initializedPositionManagersCache.get(positionManagerAddress.toRawString())) {
-      return true;
-    }
-    try {
-      // TODO
-      const positionManagerData = await this.getPositionManagerData(positionManagerAddress);
-      if (!(positionManagerData === null || positionManagerData.referralData === null)) {
-        this.initializedPositionManagersCache.set(positionManagerAddress.toRawString(), true);
-        return true;
-      } else {
-        return false;
-      }
-    } catch (_) {
-      return false;
-    }
   }
 
   private async getOraclePayloadByAssets(opts: AssetsParams): Promise<OraclePayload> {
