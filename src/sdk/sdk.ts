@@ -46,6 +46,13 @@ const marketOpenDefaultExpiration = () => Math.floor(Date.now() / 1000) + 15 * 6
 const limitDefaultExpiration = () => Math.floor(Date.now() / 1000) + 60 * 24 * 60 * 60;
 const toAddress = (address: Address | string) => address instanceof Address ? address : Address.parse(address);
 
+type PositionManagerDataResponse = {
+  jetton_wallet_address: string
+  position_address: string
+  position_manager_data: Record<string, unknown> | null
+}
+
+
 export class StormTradingSdk {
   private readonly tonClient: TonClientAbstract;
   private readonly traderAddress: Address;
@@ -73,6 +80,21 @@ export class StormTradingSdk {
     ]);
   }
 
+  async getPositionManagerDataByTraderAndMarket(trader: string, market: string) {
+    const result = await fetch(`https://api5.storm.tg/lite/api/v0/trader/${trader}/${market}/data`);
+    const data: PositionManagerDataResponse = await result.json();
+
+    const positionAddress = Address.parse(data.position_address);
+    const jettonWalletAddress = data.jetton_wallet_address ? Address.parse(data.jetton_wallet_address) : null;
+    const isInitialized = !data.position_manager_data;
+
+    return {
+      positionAddress,
+      jettonWalletAddress,
+      isInitialized
+    }
+  }
+
   async getPositionManagerAddressByAssets(opts: AssetsParams): Promise<Address> {
     const { baseAssetName, collateralAssetName } = opts;
     const positionAddressByAssetNameAndBaseAsset = this.positionManagerAddressCache.get([
@@ -83,18 +105,14 @@ export class StormTradingSdk {
       return positionAddressByAssetNameAndBaseAsset;
     }
     const vamm = this.stormClient.config.requireAmmByAssetName(baseAssetName, collateralAssetName);
-    const vault = this.stormClient.config.requireVaultConfigByAssetName(collateralAssetName);
-    const vaultContract = this.getVaultContract(vault.vaultAddress);
     const vammAddress = Address.parse(vamm.address);
-    const positionManagerAddress = await vaultContract.getPositionManagerAddress(
-      vammAddress,
-      this.traderAddress,
-    );
+    const { positionAddress } = await this.getPositionManagerDataByTraderAndMarket(this.traderAddress.toRawString(), vammAddress.toRawString());
+
     this.positionManagerAddressCache.set(
       baseAssetName + ':' + collateralAssetName,
-      positionManagerAddress,
+      positionAddress,
     );
-    return positionManagerAddress;
+    return positionAddress;
   }
 
   async getPositionManagerData(positionManagerAddress: Address): Promise<PositionManagerData | null> {
