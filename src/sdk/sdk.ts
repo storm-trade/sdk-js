@@ -41,16 +41,13 @@ import {
   TakeProfitOrderParams,
   WithdrawLiquidityParams,
 } from './sdk.types';
+import { LiteApiClient } from '../api-clients/clients/lite-api-client';
 
 const marketOpenDefaultExpiration = () => Math.floor(Date.now() / 1000) + 15 * 60;
 const limitDefaultExpiration = () => Math.floor(Date.now() / 1000) + 60 * 24 * 60 * 60;
 const toAddress = (address: Address | string) => address instanceof Address ? address : Address.parse(address);
 
-type PositionManagerDataResponse = {
-  jetton_wallet_address: string
-  position_address: string
-  position_manager_data: Record<string, unknown> | null
-}
+
 
 
 export class StormTradingSdk {
@@ -63,14 +60,17 @@ export class StormTradingSdk {
   private readonly vaults: Cache<VaultContract> = new Cache();
   private readonly positionManagers: Cache<PositionManagerContract> = new Cache();
   private lpWalletsAddressCache: Cache<Address> = new Cache();
+  private readonly liteApiClient: LiteApiClient;
 
   constructor(
     private readonly stormClient: StormClient,
     tonClient: TonClient | TonClient4 | LiteClient,
     traderAddress: Address | string,
+    liteApiBaseUrl = 'https://api5.storm.tg/lite/api/v0',
   ) {
     this.traderAddress = toAddress(traderAddress);
     this.tonClient = new TonClientAbstract(tonClient);
+    this.liteApiClient = new LiteApiClient(liteApiBaseUrl)
   }
 
   async init() {
@@ -78,21 +78,6 @@ export class StormTradingSdk {
       this.stormClient.config.fetchConfig(),
       this.stormClient.config.fetchAssetsConfig(),
     ]);
-  }
-
-  async getPositionManagerDataByTraderAndMarket(trader: string, market: string) {
-    const result = await fetch(`https://api5.storm.tg/lite/api/v0/trader/${trader}/${market}/data`);
-    const data: PositionManagerDataResponse = await result.json();
-
-    const positionAddress = Address.parse(data.position_address);
-    const jettonWalletAddress = data.jetton_wallet_address ? Address.parse(data.jetton_wallet_address) : null;
-    const isInitialized = !data.position_manager_data;
-
-    return {
-      positionAddress,
-      jettonWalletAddress,
-      isInitialized
-    }
   }
 
   async getPositionManagerAddressByAssets(opts: AssetsParams): Promise<Address> {
@@ -106,7 +91,7 @@ export class StormTradingSdk {
     }
     const vamm = this.stormClient.config.requireAmmByAssetName(baseAssetName, collateralAssetName);
     const vammAddress = Address.parse(vamm.address);
-    const { positionAddress, jettonWalletAddress, isInitialized } = await this.getPositionManagerDataByTraderAndMarket(this.traderAddress.toRawString(), vammAddress.toRawString());
+    const { positionAddress, jettonWalletAddress, isInitialized } = await this.liteApiClient.getPositionManagerDataByTraderAndMarket(this.traderAddress.toRawString(), vammAddress.toRawString());
 
     this.positionManagerAddressCache.set(
       baseAssetName + ':' + collateralAssetName,
@@ -397,7 +382,6 @@ export class StormTradingSdk {
   }
 
   // Provide liquidity
-
   async prefetchProvideLiquidity(opts: ProvideLiquidityParams): Promise<void> {
     if (!this.isNativeVault(opts.assetName)) {
       await this.getJettonWalletAddressByAssetName(opts.assetName);
@@ -438,8 +422,7 @@ export class StormTradingSdk {
       return;
     }
     const vault = this.stormClient.config.requireVaultConfigByAssetName(assetName);
-    const lpJettonMasterContract = this.getJettonMasterContract(vault.lpJettonMaster);
-    const lpWalletAddress = await lpJettonMasterContract.getJettonWalletAddress(this.traderAddress);
+    const lpWalletAddress = await this.liteApiClient.getJettonWalletAddress(this.traderAddress.toRawString(), vault.lpJettonMaster);
     this.lpWalletsAddressCache.set(assetName, lpWalletAddress);
   }
 
@@ -460,15 +443,15 @@ export class StormTradingSdk {
   }
 
   //
-
   private async getJettonWalletAddressByAssetName(collateralAssetName: string): Promise<Address> {
     let jettonWalletAddress = this.jettonWalletsAddressCache.get(collateralAssetName);
     if (jettonWalletAddress) {
       return jettonWalletAddress;
     }
     const vault = this.stormClient.config.requireVaultConfigByAssetName(collateralAssetName);
-    const jettonMasterContract = this.getJettonMasterContract(vault.quoteAssetId);
-    jettonWalletAddress = await jettonMasterContract.getJettonWalletAddress(this.traderAddress);
+
+    jettonWalletAddress = await this.liteApiClient.getJettonWalletAddress(this.traderAddress.toRawString(), vault.quoteAssetId);
+
     this.jettonWalletsAddressCache.set(collateralAssetName, jettonWalletAddress);
     return jettonWalletAddress;
   }
@@ -482,6 +465,7 @@ export class StormTradingSdk {
       return true;
     }
     try {
+      // TODO
       const positionManagerData = await this.getPositionManagerData(positionManagerAddress);
       if (!(positionManagerData === null || positionManagerData.referralData === null)) {
         this.initializedPositionManagersCache.set(positionManagerAddress.toRawString(), true);
