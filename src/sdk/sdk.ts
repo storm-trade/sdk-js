@@ -106,12 +106,28 @@ export class StormTradingSdk {
     }
     const vamm = this.stormClient.config.requireAmmByAssetName(baseAssetName, collateralAssetName);
     const vammAddress = Address.parse(vamm.address);
-    const { positionAddress } = await this.getPositionManagerDataByTraderAndMarket(this.traderAddress.toRawString(), vammAddress.toRawString());
+    const { positionAddress, jettonWalletAddress, isInitialized } = await this.getPositionManagerDataByTraderAndMarket(this.traderAddress.toRawString(), vammAddress.toRawString());
 
     this.positionManagerAddressCache.set(
       baseAssetName + ':' + collateralAssetName,
       positionAddress,
     );
+
+
+    if (jettonWalletAddress) {
+      this.jettonWalletsAddressCache.set(
+        collateralAssetName,
+        jettonWalletAddress,
+      );
+    }
+
+    if (isInitialized) {
+      this.initializedPositionManagersCache.set(
+        positionAddress.toRawString(),
+        isInitialized,
+      );
+    }
+
     return positionAddress;
   }
 
