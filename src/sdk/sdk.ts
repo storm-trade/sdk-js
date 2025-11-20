@@ -106,12 +106,10 @@ export class StormTradingSdk {
       );
     }
 
-    if (isInitialized) {
-      this.initializedPositionManagersCache.set(
-        positionAddress.toRawString(),
-        isInitialized,
-      );
-    }
+    this.initializedPositionManagersCache.set(
+      positionAddress.toRawString(),
+      isInitialized,
+    );
 
     return positionAddress;
   }
