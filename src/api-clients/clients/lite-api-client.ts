@@ -24,7 +24,7 @@ export class LiteApiClient {
 
     const positionAddress = Address.parse(data.position_address);
     const jettonWalletAddress = data.jetton_wallet_address ? Address.parse(data.jetton_wallet_address) : null;
-    const isInitialized = !data.position_manager_data;
+    const isInitialized = !!data.position_manager_data;
 
     return {
       positionAddress,
