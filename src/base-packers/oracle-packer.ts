@@ -6,16 +6,27 @@ export function packOraclePayload(data: OraclePayload): Cell {
     case 'simple':
       return beginCell()
         .storeUint(0, 8)
-        .storeRef(data.priceRef)
-        .storeRef(data.signaturesRef)
+        .storeRef(beginCell()
+          .storeRef(data.priceRef)
+          .storeRef(data.signaturesRef)
+          .endCell()
+        )
+        .storeMaybeRef(null)
         .endCell();
     case 'withSettlement':
       return beginCell()
         .storeUint(1, 8)
-        .storeRef(data.priceRef)
-        .storeRef(data.signaturesRef)
-        .storeRef(data.settlementPriceRef)
-        .storeRef(data.settlementSignaturesRef)
+        .storeRef(
+          beginCell()
+            .storeRef(data.priceRef)
+            .storeRef(data.signaturesRef)
+            .storeRef(data.settlementPriceRef)
+            .storeRef(data.settlementSignaturesRef)
+            .endCell()
+        )
+        .storeMaybeRef(null)
         .endCell();
+    default:
+      throw new Error('Unknown oracle payload kind');
   }
 }
