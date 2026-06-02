@@ -152,7 +152,7 @@ export class StormTradingSdk {
       limitPrice: 0n,
       assetId: this.stormClient.config.requireAssetIndexByName(opts.baseAssetName),
       initPositionManager,
-      expiration: marketOpenDefaultExpiration(),
+      expiration: opts.expiration ?? marketOpenDefaultExpiration(),
       minBaseAssetAmount: opts.minBaseAssetAmount ?? 0n,
       stopTriggerPrice: opts.stopTriggerPrice ?? 0n,
       takeTriggerPrice: opts.takeTriggerPrice ?? 0n,
