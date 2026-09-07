@@ -1,5 +1,14 @@
 # @storm-trade/trading-sdk
 
+## V3 Builders (candidate)
+
+The additive `@storm-trade/trading-sdk/v3` export provides signed Smart Account intent preparation, sequencer submission/read APIs, builder attribution, account payloads and exact large-integer JSON handling. Existing exports below remain V2.
+
+See [the executable Builders example](examples/builders/README.md). Run `npm run test:v3` for shared Go/JS serialization and signature vectors, HTTP behavior and precision checks. A submission response or intent `done` does not prove on-chain settlement.
+
+This candidate has not been published as a new package version. Install a reviewed commit/tarball until release; end-to-end testnet validation is still pending.
+
+
 A powerful TypeScript-based SDK for financial trading operations, specifically designed for [Storm Trade](https://app.storm.tg).
 This SDK provides a comprehensive set of tools for managing trading positions, orders, and liquidity operations.
 

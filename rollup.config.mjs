@@ -39,6 +39,7 @@ const config = {
   input: {
     'api-clients/index': 'src/api-clients/index.ts',
     'sdk/index': 'src/sdk/index.ts',
+    'v3/index': 'src/v3/index.ts',
     'base-packers/index': 'src/base-packers/index.ts',
     'common-packers/index': 'src/common-packers/index.ts',
   },

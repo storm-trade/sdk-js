@@ -23,6 +23,11 @@
       "types": "./dist/sdk/index.d.ts",
       "require": "./dist/sdk/index.js",
       "import": "./dist/sdk/index.esm.js"
+    },
+    "./v3": {
+      "types": "./dist/v3/index.d.ts",
+      "require": "./dist/v3/index.js",
+      "import": "./dist/v3/index.esm.js"
     }
   },
   "files": [
@@ -32,16 +37,19 @@
     "dist/base-packers",
     "dist/common-packers",
     "dist/sdk",
-    "README.md"
+    "README.md",
+    "dist/v3"
   ],
   "scripts": {
     "build": "rollup -c",
-    "test": "jest",
+    "test": "npm run test:v3",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.ts\"",
     "prepare": "husky install",
     "prepublishOnly": "npm run build",
-    "docs": "typedoc --out docs src/index.ts"
+    "docs": "typedoc --out docs src/index.ts",
+    "test:v3": "npm run build && node --test tests/v3.test.cjs",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "trading",

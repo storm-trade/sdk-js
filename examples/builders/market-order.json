@@ -1,0 +1,18 @@
+{
+  "smartAccount": "0:0000000000000000000000000000000000000000000000000000000000000000",
+  "market": "0:0000000000000000000000000000000000000000000000000000000000000001",
+  "builder": "<registered-builder-address>",
+  "queryId": 0,
+  "createdAt": 1780000000,
+  "order": {
+    "type": 3,
+    "expiration": 1780000900,
+    "direction": 0,
+    "amount": "1000000000",
+    "leverage": "2000000000",
+    "limitPrice": "0",
+    "stopPrice": "0",
+    "stopTriggerPrice": "0",
+    "takeTriggerPrice": "0"
+  }
+}

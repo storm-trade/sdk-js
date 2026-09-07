@@ -16,6 +16,14 @@ export default [
       '@typescript-eslint/no-unused-vars': ['error', { caughtErrorsIgnorePattern: '^_' }],
     },
   },
+  {
+    files: ['tests/**/*.cjs', 'examples/builders/**/*.cjs'],
+    languageOptions: { globals: globals.node },
+  },
   pluginJs.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    files: ['tests/**/*.cjs', 'examples/builders/**/*.cjs'],
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
 ];
