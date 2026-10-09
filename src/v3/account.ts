@@ -1,5 +1,6 @@
 import { Address, beginCell, Cell, Dictionary, TonClient } from '@ton/ton';
 
+/** Derives from the owner's account hash only; the owner workchain is not part of the index. */
 export async function getSmartAccountAddress(
   client: TonClient,
   factory: Address,

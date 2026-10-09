@@ -11,7 +11,7 @@
     "amount": "1000000000",
     "leverage": "2000000000",
     "limitPrice": "0",
-    "stopPrice": "0",
+    "minBaseAssetAmount": "0",
     "stopTriggerPrice": "0",
     "takeTriggerPrice": "0"
   }

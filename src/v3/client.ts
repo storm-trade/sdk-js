@@ -8,12 +8,13 @@ import {
   OrderType,
   PlaceOrderRequest,
   PreparedOrder,
+  SignedMessage,
   Submission,
   UserOrder,
 } from './types';
 
 export const V3_URLS = {
-  testnet: 'https://api.stage.stormtrade.dev/v3-node-0',
+  stage: 'https://api.stage.stormtrade.dev/v3-node-0',
   mainnet: 'https://api.storm.tg/v3-node-0',
 } as const;
 
@@ -21,8 +22,9 @@ export class V3ApiError extends Error {
   constructor(
     public readonly status: number,
     public readonly body: unknown,
+    message = `V3 API returned HTTP ${status}`,
   ) {
-    super(`V3 API returned HTTP ${status}`);
+    super(message);
     this.name = 'V3ApiError';
   }
 }
@@ -62,7 +64,8 @@ export class V3Client {
       data = text;
     }
     if (!response.ok) throw new V3ApiError(response.status, data);
-    if (text && typeof data === 'string') throw new Error('Expected a JSON API response');
+    if (text && typeof data === 'string')
+      throw new V3ApiError(response.status, data, 'Expected a JSON API response');
     return data as T;
   }
 
@@ -105,13 +108,13 @@ export class V3Client {
       signal,
     );
   }
-  placeOrder(request: PlaceOrderRequest, signal?: AbortSignal) {
-    return this.request<Submission>('/order/place', request, signal);
+  /** Throws V3ApiError when the sequencer answers without admitting the intent. */
+  async placeOrder(request: PlaceOrderRequest, signal?: AbortSignal) {
+    const result = await this.request<Submission>('/order/place', request, signal);
+    if (!result.accepted) throw new V3ApiError(200, result, 'V3 order was not accepted');
+    return result;
   }
-
-  async cancelOrder(sa: Address, hash: string, signer: IntentSigner, signal?: AbortSignal) {
-    const cell = packCancel(sa, hash);
-    const request = { sa: sa.toRawString(), ...(await signCell(cell, signer)) };
+  cancelOrder(request: CancelRequest, signal?: AbortSignal) {
     return this.request<Submission>('/order/cancel', request, signal);
   }
 
@@ -133,9 +136,11 @@ export async function prepareOrder(params: {
 }): Promise<PreparedOrder> {
   const intent = { ...params, publicKey: params.signer.publicKey };
   const cell = packIntent(intent);
+  const orderRequests: SignedMessage[] = [];
   const request: PlaceOrderRequest = {
     sa: params.smartAccount.toRawString(),
     ...(await signCell(cell, params.signer)),
+    order_requests: orderRequests,
     ...(params.builder ? { builder: params.builder } : {}),
     ...(params.gasless ? { payment_mode: 'gasless' as const } : {}),
   };
@@ -150,14 +155,21 @@ export async function prepareOrder(params: {
         referenceQueryId: params.queryId,
         order: { type: OrderType.OrderRequest, selector, order },
       });
-      (request.order_requests ??= []).push(await signCell(child, params.signer));
+      orderRequests.push(await signCell(child, params.signer));
       orderRequestHashes.push(child.hash().toString('hex'));
     }
   }
   return { hash: cell.hash().toString('hex'), cell, request, orderRequestHashes };
 }
 
-export async function prepareCancel(sa: Address, hash: string, signer: IntentSigner) {
+export type CancelRequest = SignedMessage & { sa: string };
+
+/** The cancel cell has no nonce, so the hash is reproducible from the same inputs. */
+export async function prepareCancel(
+  sa: Address,
+  hash: string,
+  signer: IntentSigner,
+): Promise<{ hash: string; request: CancelRequest }> {
   const cell = packCancel(sa, hash);
   return {
     hash: cell.hash().toString('hex'),

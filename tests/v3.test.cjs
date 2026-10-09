@@ -32,7 +32,7 @@ const open = {
   amount: 123456789123n,
   leverage: 3000000000n,
   limitPrice: 65000000000000n,
-  stopPrice: 0n,
+  minBaseAssetAmount: 0n,
   stopTriggerPrice: 0n,
   takeTriggerPrice: 0n,
 };
@@ -47,7 +47,8 @@ const base = {
 for (const v of vectors)
   test(`Go/JS intent vector type=${v.type}`, async () => {
     let order;
-    if ([2, 3].includes(v.type)) order = { ...open, type: v.type };
+    if (v.type === 3) order = open;
+    else if (v.type === 2) order = { ...open, type: 2, stopPrice: 0n };
     else if ([0, 1].includes(v.type))
       order = {
         type: v.type,
@@ -85,6 +86,7 @@ test('builder stays outside the signature; attached SL/TP reference the parent',
   assert.equal(a.hash, b.hash);
   assert.equal(a.request.signature, b.request.signature);
   assert.equal(b.request.builder, sa.toRawString());
+  assert.deepEqual(a.request.order_requests, []);
   const attached = await prepareOrder({
     ...base,
     queryId: 0,
@@ -142,6 +144,14 @@ test('submission exposes admission; errors preserve body and do not retry', asyn
   });
   await assert.rejects(disconnected.placeOrder({ sa: 'x' }), /connection lost/);
   assert.equal(calls, 3);
+  const rejected = new V3Client(
+    'https://example.test',
+    async () => new Response('{"ok":true,"accepted":false}'),
+  );
+  await assert.rejects(
+    rejected.placeOrder({ sa: 'x' }),
+    err => err instanceof V3ApiError && err.body.accepted === false,
+  );
 });
 
 test('cancel validates hash and deposit key init requires deployment', () => {
@@ -149,6 +159,7 @@ test('cancel validates hash and deposit key init requires deployment', () => {
   const s = packCancel(sa, 'ab'.repeat(32)).beginParse();
   assert(s.loadAddress().equals(sa));
   assert.equal(s.loadBuffer(32).toString('hex'), 'ab'.repeat(32));
+  assert(packCancel(sa, '@offchain:' + 'ab'.repeat(32)).equals(packCancel(sa, 'ab'.repeat(32))));
   assert.throws(
     () =>
       depositPayload({
@@ -209,4 +220,17 @@ test('prepared cancellation retains its own hash before submission', async () =>
     (await signer.sign(packCancel(sa, 'ab'.repeat(32)).hash())).toString('base64'),
   );
   assert.equal(result.request.sa, sa.toRawString());
+});
+
+test('market minBaseAssetAmount and limit stopPrice share the same slot', () => {
+  const slot = order => {
+    const s = packOrder(order).beginParse();
+    s.loadUint(4 + 32 + 1);
+    s.loadCoins();
+    s.loadUint(64);
+    s.loadCoins();
+    return s.loadCoins();
+  };
+  assert.equal(slot({ ...open, minBaseAssetAmount: 5n }), 5n);
+  assert.equal(slot({ ...open, type: 2, stopPrice: 7n }), 7n);
 });

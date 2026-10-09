@@ -5,6 +5,7 @@ const {
   V3Client,
   V3_URLS,
   prepareOrder,
+  prepareCancel,
   depositPayload,
   withdrawalPayload,
   keyPayload,
@@ -14,7 +15,7 @@ const { packInJettonPayload } = require('@storm-trade/trading-sdk/base-packers')
 
 async function main() {
   const [command, argument] = process.argv.slice(2);
-  const api = new V3Client(process.env.STORM_V3_URL || V3_URLS.testnet);
+  const api = new V3Client(process.env.STORM_V3_URL || V3_URLS.stage);
   const signal = AbortSignal.timeout(30000);
   const print = value => console.log(JSON.stringify(value, null, 2));
   if (command === 'status') return print(await api.getStatus(signal));
@@ -101,8 +102,11 @@ async function main() {
     publicKey: crypto.createPublicKey(key).export({ format: 'der', type: 'spki' }).subarray(-32),
     sign: async hash => crypto.sign(null, hash, key),
   };
-  if (command === 'cancel')
-    return print(await api.cancelOrder(Address.parse(p.smartAccount), p.hash, signer, signal));
+  if (command === 'cancel') {
+    const prepared = await prepareCancel(Address.parse(p.smartAccount), p.hash, signer);
+    print({ hash: prepared.hash });
+    return print(await api.cancelOrder(prepared.request, signal));
+  }
   if (command !== 'prepare') throw new Error('Unknown command');
   const order = { ...p.order };
   for (const field of [
@@ -110,6 +114,7 @@ async function main() {
     'leverage',
     'limitPrice',
     'stopPrice',
+    'minBaseAssetAmount',
     'stopTriggerPrice',
     'takeTriggerPrice',
     'triggerPrice',

@@ -17,4 +17,4 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run test:v3
       - run: npx eslint src/v3 tests examples/builders
-      - run: npx tsc --noEmit --target es2022 --moduleResolution node --skipLibCheck --strict src/v3/index.ts
+      - run: npm run typecheck

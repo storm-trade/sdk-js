@@ -22,7 +22,7 @@ export function packOrder(order: UserOrder): Cell {
         .storeCoins(order.amount)
         .storeUint(order.leverage, 64)
         .storeCoins(order.limitPrice)
-        .storeCoins(order.stopPrice)
+        .storeCoins(order.type === OrderType.Market ? order.minBaseAssetAmount : order.stopPrice)
         .storeCoins(order.stopTriggerPrice)
         .storeCoins(order.takeTriggerPrice)
         .endCell();
@@ -62,12 +62,11 @@ export function packIntent(intent: Intent): Cell {
     .endCell();
 }
 
+/** Accepts a bare hex order hash or an API order ID with the `@offchain:` prefix. */
 export function packCancel(smartAccount: Address, orderHash: string): Cell {
-  if (!/^[a-fA-F0-9]{64}$/.test(orderHash)) throw new Error('Expected a 32-byte hex order hash');
-  return beginCell()
-    .storeAddress(smartAccount)
-    .storeBuffer(Buffer.from(orderHash, 'hex'))
-    .endCell();
+  const hash = orderHash.replace(/^@offchain:/, '');
+  if (!/^[a-fA-F0-9]{64}$/.test(hash)) throw new Error('Expected a 32-byte hex order hash');
+  return beginCell().storeAddress(smartAccount).storeBuffer(Buffer.from(hash, 'hex')).endCell();
 }
 
 export async function signCell(cell: Cell, signer: IntentSigner): Promise<SignedMessage> {

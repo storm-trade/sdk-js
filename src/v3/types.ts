@@ -11,18 +11,18 @@ export enum OrderType {
 }
 
 export type Direction = 0 | 1;
-export type OpenOrder = {
-  type: OrderType.Market | OrderType.Limit;
+type OpenOrderFields = {
   expiration: number;
   direction: Direction;
   amount: bigint;
   leverage: bigint;
   limitPrice: bigint;
-  /** Market: minimum base amount; limit: stop price. */
-  stopPrice: bigint;
   stopTriggerPrice: bigint;
   takeTriggerPrice: bigint;
 };
+export type MarketOrder = OpenOrderFields & { type: OrderType.Market; minBaseAssetAmount: bigint };
+export type LimitOrder = OpenOrderFields & { type: OrderType.Limit; stopPrice: bigint };
+export type OpenOrder = MarketOrder | LimitOrder;
 export type UserOrder =
   | OpenOrder
   | {
@@ -89,8 +89,18 @@ export interface BuilderInfo {
   updated_at: number;
 }
 
+export const INTENT_STATUS = {
+  accepted: 'accepted',
+  executing: 'executing',
+  done: 'done',
+  failed: 'failed',
+  placed: 'placed',
+  cancelled: 'cancelled',
+} as const;
+export type IntentStatusValue = (typeof INTENT_STATUS)[keyof typeof INTENT_STATUS];
+
 export interface IntentStatus {
-  status: string;
+  status: IntentStatusValue;
   ts: number;
   trace?: unknown;
   error?: string;

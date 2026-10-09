@@ -38,18 +38,20 @@ Coordinate all writers for the account. Do not create a new signed order on a su
 `accepted` and intent `done` are not on-chain finality. Match the hash in account bundles, then require the matching
 bundle's confirmed outcome and reconcile indexed transaction/account state. If records have expired, use indexed chain history.
 
-Order variants use the same `prepare` command:
+Order variants use the same `prepare` command (market orders use `minBaseAssetAmount`, `"0"` for no minimum):
 
 - Limit: `type:2`, positive `limitPrice`, `stopPrice:"0"`.
 - Stop market: `type:2`, `limitPrice:"0"`, positive `stopPrice`.
 - Stop limit: `type:2`, positive limit and stop prices.
 - SL/TP: `type:0` / `type:1`, `expiration`, `direction`, base-size `amount`, `triggerPrice`.
-- Close: `type:1`, `triggerPrice:"0"`, base-size `amount`, `expiration:0`.
+- Close: `type:1`, `triggerPrice:"0"`, base-size `amount`, short future `expiration` (the Storm app uses now + 600 s).
 - Margin: `type:4` / `type:5`, `direction`, internal collateral `amount`.
 - Attached SL/TP: nonzero `stopTriggerPrice` / `takeTriggerPrice` on the opening order; child intents are prepared automatically.
 
-Cancel a resting order: create a JSON file with `smartAccount` and `hash`, then run `cli.cjs cancel file.json`.
-Cancellation is signed independently; reconcile its response/hash and the target order status.
+Cancel a resting order: create a JSON file with `smartAccount` and `hash` (bare hex or `@offchain:` order ID), then run `cli.cjs cancel file.json`.
+The cancel hash is printed before submission; reconcile it and the target order status.
+
+`placeOrder` throws `V3ApiError` when the response is not `accepted`.
 
 Account setup uses wallet-signed TON transactions, separate from raw intent signing:
 
