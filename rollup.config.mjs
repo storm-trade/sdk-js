@@ -5,10 +5,12 @@ import { readFileSync } from 'fs';
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url)));
 
-const external = [
+const packages = [
   ...Object.keys(pkg.dependencies || {}),
   ...Object.keys(pkg.peerDependencies || {}),
 ];
+// a package and its subpaths (msgpackr/unpack) stay imports; bundled, they would land outside dist's files
+const external = id => packages.some(name => id === name || id.startsWith(`${name}/`));
 
 const plugins = [
   typescript({
@@ -42,6 +44,8 @@ const config = {
     'v3/index': 'src/v3/index.ts',
     'base-packers/index': 'src/base-packers/index.ts',
     'common-packers/index': 'src/common-packers/index.ts',
+    'predictions/index': 'src/predictions/index.ts',
+    'predictions-vault/index': 'src/predictions-vault/index.ts',
   },
   output: [
     {

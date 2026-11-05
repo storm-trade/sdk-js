@@ -5,7 +5,7 @@ import tseslint from 'typescript-eslint';
 /** @type {import('eslint').Linter.Config[]} */
 export default [
   {
-    ignores: ['docs/*', 'dist/*', 'coverage/*', 'node_modules/*'],
+    ignores: ['docs/*', 'dist/*', 'coverage/*', 'node_modules/*', 'src/predictions-vault/bindings.ts'],
   },
   {
     files: ['**/*.{js,mjs,cjs,ts}'],

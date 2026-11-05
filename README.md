@@ -8,6 +8,14 @@ See [the executable Builders example](examples/builders/README.md). Run `npm run
 
 This candidate has not been published as a new package version. Install a reviewed commit/tarball until release; end-to-end testnet validation is still pending.
 
+## Predictions
+
+`@storm-trade/trading-sdk/predictions` is the predictions API without `@ton/core`: types and zod schemas, `PredictionsClient` over any transport (`fetchTransport` by default), the WebSocket message parser, market buy/sell orders, quote amounts, position valuation and fixed-point formatting.
+
+`@storm-trade/trading-sdk/predictions-vault` builds the Vault intents and checks a server quote against the route and the order before it is signed. Its contract bindings are regenerated from the contract's generated wrapper with `npm run sync:prediction-bindings -- <path>/PredictionVault.gen.ts`.
+
+Run `npm run test:predictions`.
+
 
 A powerful TypeScript-based SDK for financial trading operations, specifically designed for [Storm Trade](https://app.storm.tg).
 This SDK provides a comprehensive set of tools for managing trading positions, orders, and liquidity operations.
